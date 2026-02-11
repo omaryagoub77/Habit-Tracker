@@ -1,0 +1,295 @@
+Build a production-ready mobile habit tracker app (Android first, iOS compatible).
+This is NOT a web app.
+
+App Name
+
+HabitFlow
+
+Tech Stack (MANDATORY)
+
+Expo (managed workflow)
+
+React Native
+
+TypeScript
+
+Expo Router (file-based routing)
+
+Expo SQLite (local persistent storage)
+
+Expo Notifications (local notifications & alarms)
+
+Expo Dev Client / Standalone build compatible
+
+No web-only APIs
+
+No Expo Go limitations
+
+Core Requirements (DO NOT SKIP ANY)
+1. App Structure
+
+Use Expo Router with this structure:
+
+app/
+ ├─ _layout.tsx
+ ├─ index.tsx            // Landing / Today screen
+ ├─ habits/
+ │   ├─ new.tsx          // Create habit
+ │   └─ edit/[id].tsx
+ ├─ check.tsx            // Daily habit check screen
+ ├─ reports.tsx          // Calendar & stats
+ ├─ task.tsx             // One-time task + alarm
+ └─ settings.tsx
+src/
+ ├─ database/
+ │   └─ DatabaseService.ts
+ ├─ models/
+ ├─ services/
+ │   └─ NotificationService.ts
+ └─ components/
+
+2. Landing Page (HOME / TODAY)
+
+This is the main screen.
+
+Features:
+
+Display today’s habits only
+
+Group habits into sections:
+
+Morning
+
+Midday
+
+Evening
+
+Night
+
+Each habit has:
+
+Checkbox (checked / unchecked)
+
+Name
+
+Optional icon
+
+Small floating “+” button
+
+Navigates to Create Habit
+
+Checking a habit:
+
+Saves today’s completion in the database
+
+Updates UI instantly
+
+If already checked today → persist state
+
+3. Habit Creation
+
+Habit fields:
+
+Name
+
+Time section (Morning / Midday / Evening / Night)
+
+Optional reminder time
+
+Optional icon / color
+
+Start date
+
+Active toggle
+
+Behavior:
+
+Saved in SQLite
+
+Optional notification scheduled daily
+
+Cannot crash if DB is not initialized
+
+4. Daily Check Logic (CRITICAL)
+
+Habit completion is per day
+
+Store:
+
+habitId
+
+date (YYYY-MM-DD)
+
+completed (boolean)
+
+Prevent duplicate entries per day
+
+Allow unchecking (updates record)
+
+5. Reports Page (CALENDAR STYLE)
+Requirements:
+
+Calendar view (month grid)
+
+Each day:
+
+Colored if habits were completed
+
+Different intensity if all vs partial
+
+Tap a day:
+
+Show list of habits completed that day
+
+Summary:
+
+Streak per habit
+
+Completion percentage
+
+6. One-Time Task Page (VERY IMPORTANT)
+
+This page is separate from habits.
+
+Features:
+
+Create one single task
+
+Fields:
+
+Title
+
+Date
+
+Time
+
+Alarm notification:
+
+Fires at exact time
+
+Task auto-expires after completion or time passed
+
+Must work in standalone build, not Expo Go
+
+Ability to delete / cancel notification
+
+7. Notifications (NO EXPO GO LIMITS)
+
+Use expo-notifications
+
+Request permissions correctly
+
+Schedule:
+
+Daily habit reminders
+
+One-time task alarms
+
+Store notification IDs in database
+
+Cancel notifications when habit/task is deleted
+
+8. Database (MANDATORY STABILITY)
+
+SQLite tables:
+
+habits
+
+habit_completions
+
+one_time_tasks
+
+Rules:
+
+Initialize DB before any query
+
+Singleton DatabaseService
+
+Safe async initialization
+
+No “Database not initialized” errors
+
+All CRUD wrapped in try/catch
+
+9. Navigation
+
+Bottom tab navigation:
+
+Today
+
+Check
+
+Reports
+
+Task
+
+Settings
+
+No navigation errors
+
+All routes registered
+
+10. UI / UX
+
+Mobile-first design
+
+Clean, minimal UI
+
+Touch-friendly
+
+No web layouts
+
+Use React Native components only
+
+11. Build & Environment
+
+Must run on Android emulator or real device
+
+Compatible with:
+
+npx expo prebuild
+npx expo run:android
+npx eas build --profile development
+
+
+No in-memory storage
+
+No mock data after setup
+
+12. Error Handling
+
+Graceful error messages
+
+No silent failures
+
+Console logs for debugging
+
+13. What NOT to Do
+
+Do NOT build a web app
+
+Do NOT rely on Expo Go for notifications
+
+Do NOT skip database initialization
+
+Do NOT mix task and habit logic
+
+Final Deliverable
+
+A fully working native mobile habit tracker app with:
+
+Today habit tracking
+
+Time-based habit sections
+
+Daily checking
+
+Calendar reports
+
+One-time task with alarm
+
+Local persistence
+
+Real notifications
+
+Build it cleanly, correctly, and completely.

@@ -1,0 +1,1 @@
+The wheel picker numbers in HabitTimerScreen.tsx are displaying incorrectly or have poor visibility. Review the pickerText style, ITEM_HEIGHT constant, and related styling to ensure the numbers are clearly visible, properly sized, and rendered correctly in the wheel picker component. Fix any issues with text appearance, sizing, alignment, or contrast.
