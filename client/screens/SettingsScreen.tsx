@@ -29,10 +29,10 @@ export default function SettingsScreen() {
   const { settings, isLoading: settingsLoading, updateSettings, refresh } = useUserSettings();
   const { setTheme: setThemeContext } = useThemeContext();
   const [displayName, setDisplayName] = useState("");
-  const [isNameDirty, setIsNameDirty] = useState(false); // Track if name has been changed
+  const [isNameDirty, setIsNameDirty] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
 
-  // 1. Force a refresh when the screen comes into focus, but ONLY if DB is ready
+  // Force refresh when screen comes into focus
   useFocusEffect(
     useCallback(() => {
       if (isInitialized) {
@@ -41,16 +41,12 @@ export default function SettingsScreen() {
     }, [isInitialized, refresh])
   );
 
-  // 2. CRITICAL FIX: Auto-retry logic
-  // If the DB is initialized but we have no settings, try to fetch them again automatically.
-  // This fixes the race condition where the UI renders before data is ready.
+  // Auto-retry logic for settings
   useEffect(() => {
     let retryTimer: NodeJS.Timeout;
     
     if (isInitialized && !settings && !settingsLoading) {
-      // Wait 500ms and try again
       retryTimer = setTimeout(() => {
-        console.log("Auto-retrying settings fetch...");
         refresh();
       }, 500);
     }
@@ -62,13 +58,12 @@ export default function SettingsScreen() {
   useEffect(() => {
     if (settings) {
       setDisplayName(settings.displayName);
-      setIsNameDirty(false); // Reset dirty state when settings are loaded
+      setIsNameDirty(false);
     }
   }, [settings]);
 
   const handleNameChange = (text: string) => {
     setDisplayName(text);
-    // Mark as dirty if the text is different from the saved name
     if (settings && text !== settings.displayName) {
       setIsNameDirty(true);
     } else {
@@ -79,7 +74,7 @@ export default function SettingsScreen() {
   const handleNameSave = () => {
     if (settings && displayName !== settings.displayName) {
       updateSettings({ displayName });
-      setIsNameDirty(false); // Reset dirty state after saving
+      setIsNameDirty(false);
     }
   };
 
@@ -98,9 +93,7 @@ export default function SettingsScreen() {
   };
 
   const handleThemeModeChange = async (mode: UserSettings["themeMode"]) => {
-    // Update the theme context first for immediate visual feedback
     await setThemeContext(mode);
-    // Also update the database settings
     updateSettings({ themeMode: mode });
   };
 
@@ -144,16 +137,12 @@ export default function SettingsScreen() {
     );
   };
 
-  // 3. ROBUST LOADING STATE
-  // We keep showing the loader until we have the Settings object.
-  // The useEffect above ensures we keep trying to get it.
   const isPageLoading = !isInitialized || dbLoading || settingsLoading || !settings;
 
   if (isPageLoading) {
     return (
       <ThemedView style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={theme.primary} />
-        {/* Optional: Show text if it takes too long so the user knows what's happening */}
         {isInitialized && !settings && (
            <ThemedText style={{ marginTop: 20, color: theme.textSecondary }}>
              Loading profile...
@@ -163,46 +152,45 @@ export default function SettingsScreen() {
     );
   }
 
-  // At this point, `settings` is guaranteed to exist.
   return (
     <ThemedView style={styles.container}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={{
-          paddingTop: insets.top + Spacing.xl,
+          paddingTop: insets.top + Spacing.lg,
           paddingBottom: 60 + Spacing.xl,
           paddingHorizontal: Spacing.lg,
         }}
         scrollIndicatorInsets={{ bottom: insets.bottom }}
         showsVerticalScrollIndicator={false}
       >
-        <ThemedText type="display" style={styles.title}>
+        <ThemedText type="h1" style={styles.title}>
           Settings
         </ThemedText>
 
+        {/* Profile Section */}
         <View style={styles.section}>
-          <ThemedText type="small" secondary style={styles.sectionTitle}>
+          <ThemedText type="caption" secondary style={styles.sectionTitle}>
             Profile
           </ThemedText>
           
           <View style={[styles.card, { backgroundColor: theme.backgroundDefault }]}>
-            <View style={styles.profileHeader}>
+            <View style={styles.profileRow}>
               <View style={styles.profileInfo}>
                 <TextInput
                   style={[styles.nameInput, { color: theme.text }]}  
                   value={displayName}
-                  onChangeText={handleNameChange} // Use the new handler
+                  onChangeText={handleNameChange}
                   placeholder="Your name"
                   placeholderTextColor={theme.textSecondary}
                   onBlur={handleNameBlur}
                 />
-                {/* Only show the save button if the name is dirty */}
                 {isNameDirty && (
                   <TouchableOpacity 
                     style={[styles.saveButton, { backgroundColor: theme.primary }]}  
-                    onPress={handleNameSave} // Use the new handler
+                    onPress={handleNameSave}
                   >
-                    <ThemedText type="small" style={styles.saveButtonText}>Save Name</ThemedText>
+                    <ThemedText type="small" style={styles.saveButtonText}>Save</ThemedText>
                   </TouchableOpacity>
                 )}
               </View>
@@ -210,16 +198,18 @@ export default function SettingsScreen() {
           </View>
         </View>
 
+        {/* Preferences Section */}
         <View style={styles.section}>
-          <ThemedText type="small" secondary style={styles.sectionTitle}>
+          <ThemedText type="caption" secondary style={styles.sectionTitle}>
             Preferences
           </ThemedText>
           
           <View style={[styles.card, { backgroundColor: theme.backgroundDefault }]}>
-            <View style={[styles.settingRow, { borderBottomColor: theme.border, borderColor: theme.border }]}>
+            {/* Notifications Toggle */}
+            <View style={styles.settingRow}>
               <View style={styles.settingInfo}>
                 <View style={[styles.miniIcon, { backgroundColor: theme.primary + '20' }]}>  
-                  <Feather name="bell" size={20} color={theme.primary} />
+                  <Feather name="bell" size={18} color={theme.primary} />
                 </View>
                 <ThemedText type="body">Notifications</ThemedText>
               </View>
@@ -227,67 +217,30 @@ export default function SettingsScreen() {
                 value={settings.notificationsEnabled}
                 onValueChange={handleNotificationsToggle}
                 trackColor={{ false: theme.border, true: theme.primary }}
+                thumbColor="#FFFFFF"
               />
             </View>
 
-            <View style={[styles.divider, { backgroundColor: theme.border, opacity: 0.3 }]} />
 
-            <View style={styles.settingColumn}>
-              <View style={styles.settingInfo}>
-                <View style={[styles.miniIcon, { backgroundColor: theme.accent + '20' }]}>  
-                  <Feather name="clock" size={20} color={theme.accent} />
-                </View>
-                <ThemedText type="body">Default Time Section</ThemedText>
-              </View>
-              <View style={styles.timeSectionPicker}>
-                {(Object.keys(TimeSection) as Array<keyof typeof TimeSection>).map(
-                  (key) => (
-                    <Pressable
-                      key={key}
-                      style={[
-                        styles.timeSectionOption,
-                        {
-                          backgroundColor:
-                            settings.defaultTimeSection === key
-                              ? theme.primary
-                              : theme.backgroundSecondary,
-                        },
-                      ]}
-                      onPress={() => handleTimeSectionChange(key)}
-                    >
-                      <ThemedText
-                        type="small"
-                        style={{
-                          color:
-                            settings.defaultTimeSection === key
-                              ? "#FFFFFF"
-                              : theme.text,
-                        }}
-                      >
-                        {TimeSection[key].label}
-                      </ThemedText>
-                    </Pressable>
-                  )
-                )}
-              </View>
-            </View>
+       
 
-            <View style={[styles.divider, { backgroundColor: theme.border, opacity: 0.3 }]} />
+            <View style={[styles.divider, { backgroundColor: theme.border }]} />
 
+            {/* Theme Mode Picker */}
             <View style={styles.settingColumn}>
               <View style={styles.settingInfo}>
                 <View style={[styles.miniIcon, { backgroundColor: theme.primary + '20' }]}>  
-                  <Feather name="moon" size={20} color={theme.primary} />
+                  <Feather name="moon" size={18} color={theme.primary} />
                 </View>
-                <ThemedText type="body">Theme Mode</ThemedText>
+                <ThemedText type="body">Theme</ThemedText>
               </View>
-              <View style={styles.timeSectionPicker}>
+              <View style={styles.pickerRow}>
                 {(["system", "light", "dark"] as UserSettings["themeMode"][]).map(
                   (mode) => (
                     <Pressable
                       key={mode}
                       style={[
-                        styles.timeSectionOption,
+                        styles.pickerOption,
                         {
                           backgroundColor:
                             settings.themeMode === mode
@@ -306,7 +259,7 @@ export default function SettingsScreen() {
                               : theme.text,
                         }}
                       >
-                        {mode === "dark" ? "Dark Forest" : mode === "light" ? "Clean Meadow" : mode.charAt(0).toUpperCase() + mode.slice(1)}
+                        {mode === "dark" ? "Dark" : mode === "light" ? "Light" : "System"}
                       </ThemedText>
                     </Pressable>
                   )
@@ -316,8 +269,9 @@ export default function SettingsScreen() {
           </View>
         </View>
 
+        {/* Data Section */}
         <View style={styles.section}>
-          <ThemedText type="small" secondary style={styles.sectionTitle}>
+          <ThemedText type="caption" secondary style={styles.sectionTitle}>
             Data
           </ThemedText>
           
@@ -330,19 +284,20 @@ export default function SettingsScreen() {
             disabled={isClearing}
           >
             <View style={[styles.miniIcon, { backgroundColor: theme.error + '20' }]}>  
-              <Feather name="trash-2" size={20} color={theme.error} />
+              <Feather name="trash-2" size={18} color={theme.error} />
             </View>
             <View style={styles.dangerInfo}>
               <ThemedText type="body" style={{ color: theme.error }}>
                 {isClearing ? "Clearing..." : "Clear All Data"}
               </ThemedText>
-              <ThemedText type="small" secondary>
+              <ThemedText type="caption" secondary>
                 Delete all habits, completions, and tasks
               </ThemedText>
             </View>
           </Pressable>
         </View>
 
+        {/* Footer */}
         <View style={styles.footer}>
           <ThemedText type="caption" secondary style={styles.footerText}>
             HabitFlow v1.0.0
@@ -377,28 +332,26 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
   },
   card: {
-    borderRadius: BorderRadius.md,
+    borderRadius: BorderRadius.lg,
     padding: Spacing.lg,
   },
-  profileHeader: {
+  profileRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: Spacing.lg,
   },
   profileInfo: {
     flex: 1,
   },
   nameInput: {
-    fontSize: 20,
-    fontWeight: "600",
-    marginBottom: Spacing.xs,
+    fontSize: 18,
+    fontWeight: "500",
     padding: 0,
   },
   saveButton: {
     alignSelf: 'flex-start',
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
-    borderRadius: BorderRadius.md,
+    borderRadius: BorderRadius.sm,
     marginTop: Spacing.sm,
   },
   saveButtonText: {
@@ -409,27 +362,27 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    borderBottomWidth: 1,
-    paddingVertical: Spacing.md,
+    paddingVertical: Spacing.sm,
   },
   settingColumn: {
-    gap: Spacing.md,
+    paddingVertical: Spacing.sm,
   },
   settingInfo: {
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.md,
+    marginBottom: Spacing.md,
   },
   divider: {
     height: 1,
-    marginVertical: Spacing.lg,
+    marginVertical: Spacing.md,
   },
-  timeSectionPicker: {
+  pickerRow: {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: Spacing.sm,
   },
-  timeSectionOption: {
+  pickerOption: {
     paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.md,
     borderRadius: BorderRadius.full,
@@ -437,7 +390,7 @@ const styles = StyleSheet.create({
   miniIcon: {
     width: 32,
     height: 32,
-    borderRadius: 8,
+    borderRadius: BorderRadius.sm,
     justifyContent: 'center',
     alignItems: 'center'
   },
@@ -445,7 +398,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.md,
-    borderRadius: BorderRadius.md,
+    borderRadius: BorderRadius.lg,
     padding: Spacing.lg,
     borderWidth: 1,
   },

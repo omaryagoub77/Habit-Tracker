@@ -6,7 +6,6 @@ import { useScreenOptions } from "@/hooks/useScreenOptions";
 const MainTabNavigator = React.lazy(() => import("@/navigation/MainTabNavigator"));
 const NewHabitScreen = React.lazy(() => import("@/screens/NewHabitScreen"));
 const EditHabitScreen = React.lazy(() => import("@/screens/EditHabitScreen"));
-const HabitTimerScreen = React.lazy(() => import("@/screens/HabitTimerScreen"));
 const FocusSessionScreen = React.lazy(() => import("@/screens/FocusSessionScreen"));
 const HabitDetailScreen = React.lazy(() => import("@/screens/HabitDetailScreen"));
 
@@ -14,7 +13,6 @@ export type RootStackParamList = {
   Main: undefined;
   NewHabit: undefined;
   EditHabit: { habitId: number };
-  HabitTimer: { habitId: string; habitName: string };
   FocusSession: undefined;
   HabitDetail: { habitId: number };
 };
@@ -36,9 +34,6 @@ export default function RootStackNavigator() {
   const editHabitScreenOptions = useMemo(() => ({
     presentation: "modal" as const,
     headerTitle: "Edit Habit",
-  }), []);
-  const habitTimerScreenOptions = useMemo(() => ({
-    headerTitle: "Habit Timer",
   }), []);
   const focusSessionScreenOptions = useMemo(() => ({
     headerTitle: "Focus Session",
@@ -72,11 +67,6 @@ export default function RootStackNavigator() {
         name="EditHabit"
         component={EditHabitScreen}
         options={editHabitScreenOptions}
-      />
-      <Stack.Screen
-        name="HabitTimer"
-        component={HabitTimerScreen}
-        options={habitTimerScreenOptions}
       />
       <Stack.Screen
         name="FocusSession"

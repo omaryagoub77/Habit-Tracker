@@ -37,18 +37,13 @@ import { TimeTrackingService } from '@/services/TimeTrackingService';
 import { HabitNotificationService } from '@/services/HabitNotificationService';
 import { db } from '@/database/DatabaseService';
 import { WheelPicker } from '@/components/WheelPicker';
-import { stopAlarmSound } from '@/services/EnhancedAlarmService';
-import AlarmNative from '../native/AlarmNative';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 // Canonical alarm stop function
 const stopAlarmSafely = async () => {
-  try {
-    await AlarmNative.stopAlarm();
-  } catch (e) {
-    console.warn('Stop alarm failed:', e);
-  }
+  // Alarm functionality removed
+  return;
 };
 
 // FocusSessionScreen component
@@ -143,7 +138,7 @@ export default function FocusSessionScreen() {
         // App went to background
         // Stop any playing alarm when going to background
         if (isAlarmPlaying) {
-          stopAlarmSafely();
+          // Alarm stopped when going to background
           setIsAlarmPlaying(false); // Update state to hide stop alarm button
         }
       }
@@ -236,7 +231,6 @@ export default function FocusSessionScreen() {
     }
     
     // Stop any playing alarm when pausing
-    stopAlarmSafely();
     setIsAlarmPlaying(false); // Update state to hide stop alarm button
     
     setIsRunning(false);
@@ -260,7 +254,6 @@ export default function FocusSessionScreen() {
     }
     
     // Stop any playing alarm when resetting
-    stopAlarmSafely();
     setIsAlarmPlaying(false); // Update state to hide stop alarm button
     
     // Reset times
@@ -623,7 +616,7 @@ export default function FocusSessionScreen() {
           <TouchableOpacity 
             style={[styles.controlButton, { backgroundColor: '#FF5252' }]}
             onPress={() => {
-              stopAlarmSafely();
+              // Stop alarm button pressed
               setIsAlarmPlaying(false); // Update state to hide the button
             }}
           >

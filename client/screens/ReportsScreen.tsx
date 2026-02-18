@@ -69,7 +69,7 @@ function DayDetailsModal({ visible, onClose, date, habits, completedIds }: DayDe
             },
           ]}
         >
-          <View style={[styles.modalHandle, { backgroundColor: theme.textSecondary }]} />
+          <View style={[styles.modalHandle, { backgroundColor: theme.border }]} />
           <ThemedText type="h4" style={styles.modalTitle}>
             {formattedDate}
           </ThemedText>
@@ -79,32 +79,34 @@ function DayDetailsModal({ visible, onClose, date, habits, completedIds }: DayDe
               No habits tracked this day
             </ThemedText>
           ) : (
-            habits.map((habit) => {
-              const isCompleted = completedIds.includes(habit.id);
-              return (
-                <View
-                  key={habit.id}
-                  style={[styles.modalHabitItem, { backgroundColor: theme.backgroundDefault }]}
-                >
-                  <View style={styles.modalHabitContent}>
-                    <View
-                      style={[
-                        styles.habitIcon,
-                        { backgroundColor: habit?.color + "20" },
-                      ]}
-                    >
-                      <Feather name={(habit?.icon || 'activity') as any} size={16} color={habit?.color} />
+            <View style={styles.modalHabitsList}>
+              {habits.map((habit) => {
+                const isCompleted = completedIds.includes(habit.id);
+                return (
+                  <View
+                    key={habit.id}
+                    style={[styles.modalHabitItem, { backgroundColor: theme.backgroundDefault }]}
+                  >
+                    <View style={styles.modalHabitContent}>
+                      <View
+                        style={[
+                          styles.habitIcon,
+                          { backgroundColor: (habit?.color || '#4A7C59') + "20" },
+                        ]}
+                      >
+                        <Feather name={(habit?.icon || 'activity') as any} size={16} color={habit?.color || '#4A7C59'} />
+                      </View>
+                      <ThemedText type="body">{habit?.name || 'Unknown Habit'}</ThemedText>
                     </View>
-                    <ThemedText type="body">{habit?.name || 'Unknown Habit'}</ThemedText>
+                    {isCompleted ? (
+                      <Feather name="check-circle" size={20} color={theme.success} />
+                    ) : (
+                      <Feather name="circle" size={20} color={theme.textSecondary} />
+                    )}
                   </View>
-                  {isCompleted ? (
-                    <Feather name="check-circle" size={20} color={theme.success} />
-                  ) : (
-                    <Feather name="circle" size={20} color={theme.textSecondary} />
-                  )}
-                </View>
-              );
-            })
+                );
+              })}
+            </View>
           )}
         </Pressable>
       </Pressable>
@@ -132,7 +134,6 @@ export default function ReportsScreen() {
   const month = currentDate.getMonth();
 
   const loadMonthData = useCallback(async () => {
-    console.log("[ReportsScreen] loadMonthData called, isInitialized:", isInitialized, "habits.length:", habits.length);
     if (!isInitialized) return;
     setIsLoading(true);
     try {
@@ -203,6 +204,11 @@ export default function ReportsScreen() {
     return theme.calendarNoData;
   };
 
+  const getTextColor = (total: number, completed: number): string => {
+    if (total > 0 && completed > 0) return "#FFFFFF";
+    return theme.textSecondary;
+  };
+
   const totalCompletions = Array.from(monthData.values()).reduce(
     (sum, d) => sum + d.completed,
     0
@@ -226,33 +232,33 @@ export default function ReportsScreen() {
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={{
-          paddingTop: insets.top + Spacing.xl,
-          paddingBottom: 60 + Spacing.xl, // Adjusted padding to account for standard tab bar
+          paddingTop: insets.top + Spacing.lg,
+          paddingBottom: 60 + Spacing.xl,
           paddingHorizontal: Spacing.lg,
         }}
         scrollIndicatorInsets={{ bottom: insets.bottom }}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.headerRow}>
-          <ThemedText type="display" style={styles.title}>
+          <ThemedText type="h1" style={styles.title}>
              Reports
           </ThemedText>
         </View>
 
-        <View style={styles.monthNav}>
-          <Pressable onPress={handlePrevMonth} style={styles.navButton}>
-            <Feather name="chevron-left" size={24} color={theme.text} />
+        {/* Month Navigation */}
+        <View style={[styles.monthNavContainer, { backgroundColor: theme.backgroundDefault }]}>
+          <Pressable onPress={handlePrevMonth} style={styles.navButton} hitSlop={8}>
+            <Feather name="chevron-left" size={20} color={theme.text} />
           </Pressable>
-          <ThemedText type="h4">
+          <ThemedText type="title">
             {MONTHS[month]} {year}
           </ThemedText>
-          <Pressable onPress={handleNextMonth} style={styles.navButton}>
-            <Feather name="chevron-right" size={24} color={theme.text} />
+          <Pressable onPress={handleNextMonth} style={styles.navButton} hitSlop={8}>
+            <Feather name="chevron-right" size={20} color={theme.text} />
           </Pressable>
-          
-
         </View>
 
+        {/* Calendar Grid - Cleaner Design */}
         <View style={[styles.calendar, { backgroundColor: theme.backgroundDefault }]}>
           <View style={styles.weekDays}>
             {DAYS.map((day) => (
@@ -275,17 +281,15 @@ export default function ReportsScreen() {
                     style={[
                       styles.dayCircle,
                       {
-                        backgroundColor: getIntensityColor(
-                          dayData.total,
-                          dayData.completed
-                        ),
+                        backgroundColor: getIntensityColor(dayData.total, dayData.completed),
                       },
                     ]}
                   >
                     <ThemedText
                       type="small"
                       style={{
-                        color: dayData.total > 0 && dayData.completed > 0 ? "#FFFFFF" : theme.text,
+                        color: getTextColor(dayData.total, dayData.completed),
+                        fontWeight: dayData.completed > 0 ? "600" : "400",
                       }}
                     >
                       {dayData.day}
@@ -297,16 +301,17 @@ export default function ReportsScreen() {
           </View>
         </View>
 
+        {/* Stats Cards - Reduced Visual Heaviness */}
         <View style={styles.stats}>
           <View style={[styles.statCard, { backgroundColor: theme.backgroundDefault }]}>
-            <ThemedText type="h2">{completionRate}%</ThemedText>
-            <ThemedText type="small" secondary>
+            <ThemedText style={[styles.statValue, { color: theme.primary }]}>{completionRate}%</ThemedText>
+            <ThemedText type="caption" secondary>
               Completion Rate
             </ThemedText>
           </View>
           <View style={[styles.statCard, { backgroundColor: theme.backgroundDefault }]}>
-            <ThemedText type="h2">{totalCompletions}</ThemedText>
-            <ThemedText type="small" secondary>
+            <ThemedText style={[styles.statValue, { color: theme.success }]}>{totalCompletions}</ThemedText>
+            <ThemedText type="caption" secondary>
               Completed
             </ThemedText>
           </View>
@@ -314,7 +319,7 @@ export default function ReportsScreen() {
 
         {habits.length > 0 ? (
           <View style={styles.streaksSection}>
-            <ThemedText type="h4" style={styles.streaksTitle}>
+            <ThemedText type="title" style={styles.streaksTitle}>
               Current Streaks
             </ThemedText>
             {habits.map((habit) => (
@@ -324,15 +329,15 @@ export default function ReportsScreen() {
               >
                 <View style={styles.streakContent}>
                   <View
-                    style={[styles.habitIcon, { backgroundColor: habit?.color + "20" }]}
+                    style={[styles.habitIcon, { backgroundColor: (habit?.color || '#4A7C59') + "20" }]}
                   >
-                    <Feather name={(habit?.icon || 'activity') as any} size={16} color={habit?.color} />
+                    <Feather name={(habit?.icon || 'activity') as any} size={16} color={habit?.color || '#4A7C59'} />
                   </View>
                   <ThemedText type="body">{habit?.name || 'Unknown Habit'}</ThemedText>
                 </View>
                 <View style={styles.streakBadge}>
                   <Feather name="zap" size={14} color={theme.warning} />
-                  <ThemedText type="body" style={{ color: theme.warning }}>
+                  <ThemedText type="body" style={{ color: theme.warning, fontWeight: "500" }}>
                     {streaks.get(habit.id) || 0}
                   </ThemedText>
                 </View>
@@ -366,25 +371,24 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
     marginBottom: Spacing.xl,
   },
   title: {
     marginBottom: 0,
   },
-  monthNav: {
+  monthNavContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+    padding: Spacing.md,
+    borderRadius: BorderRadius.lg,
     marginBottom: Spacing.lg,
   },
   navButton: {
     padding: Spacing.sm,
   },
   calendar: {
-    borderRadius: BorderRadius.md,
+    borderRadius: BorderRadius.lg,
     padding: Spacing.lg,
     marginBottom: Spacing.xl,
   },
@@ -423,21 +427,26 @@ const styles = StyleSheet.create({
   statCard: {
     flex: 1,
     padding: Spacing.lg,
-    borderRadius: BorderRadius.md,
+    borderRadius: BorderRadius.lg,
     alignItems: "center",
+  },
+  statValue: {
+    fontSize: 28,
+    fontWeight: "600",
+    marginBottom: Spacing.xs,
   },
   streaksSection: {
     marginBottom: Spacing.xl,
   },
   streaksTitle: {
-    marginBottom: Spacing.md,
+    marginBottom: Spacing.lg,
   },
   streakItem: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     padding: Spacing.lg,
-    borderRadius: BorderRadius.md,
+    borderRadius: BorderRadius.lg,
     marginBottom: Spacing.sm,
   },
   streakContent: {
@@ -477,13 +486,15 @@ const styles = StyleSheet.create({
   modalTitle: {
     marginBottom: Spacing.lg,
   },
+  modalHabitsList: {
+    gap: Spacing.sm,
+  },
   modalHabitItem: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     padding: Spacing.md,
     borderRadius: BorderRadius.sm,
-    marginBottom: Spacing.sm,
   },
   modalHabitContent: {
     flexDirection: "row",

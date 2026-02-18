@@ -5,7 +5,6 @@ import {
   ScrollView,
   Pressable,
   ActivityIndicator,
-  Dimensions,
   Modal,
   Text,
 } from "react-native";
@@ -19,11 +18,9 @@ import * as Haptics from "expo-haptics";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
-  withSpring,
   withTiming,
   FadeInUp,
   FadeIn,
-  Layout,
 } from "react-native-reanimated";
 
 import { ThemedText } from "@/components/ThemedText";
@@ -32,7 +29,6 @@ import { useTheme } from "@/hooks/useTheme";
 import { useDatabase } from "@/hooks/useDatabase";
 import { db } from '@/database/DatabaseService';
 import { Habit, HabitCompletion } from '@/database/DatabaseService';
-import { TimeTrackingService } from '@/services/TimeTrackingService';
 import { Spacing, BorderRadius } from "@/constants/theme";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
@@ -48,7 +44,6 @@ interface HabitStats {
 interface CompletionSession {
   id: number;
   date: string;
-  duration?: number;
   completed: boolean;
   createdAt: string;
 }
@@ -101,16 +96,13 @@ function getDaysInMonth(year: number, month: number): string[] {
   const days: string[] = [];
   const date = new Date(year, month, 1);
   
-  // Get the first day of the month
   const firstDay = new Date(date.getFullYear(), date.getMonth(), 1);
   const firstDayOfWeek = firstDay.getDay();
   
-  // Add empty cells for days before the first day of the month
   for (let i = 0; i < firstDayOfWeek; i++) {
     days.push('');
   }
   
-  // Add all days of the month
   const lastDay = new Date(year, month + 1, 0).getDate();
   for (let i = 1; i <= lastDay; i++) {
     days.push(new Date(year, month, i).toISOString().split("T")[0]);
@@ -130,7 +122,6 @@ function MonthDetailGrid({
   const { theme } = useTheme();
   const today = new Date().toISOString().split("T")[0];
   
-  // Get all days in the current month
   const now = new Date();
   const year = now.getFullYear();
   const month = now.getMonth();
@@ -140,7 +131,6 @@ function MonthDetailGrid({
     <View style={styles.dotsGrid}>
       {daysInMonth.map((date, index) => {
         if (!date) {
-          // Empty cell for days before the first day of the month
           return <View key={`empty-${index}`} style={styles.dotWrapper} />;
         }
         
@@ -170,7 +160,7 @@ function MonthDetailGrid({
               ]}
             >
               {completed ? (
-                <Feather name="check" size={16} color={theme.success} />
+                <Feather name="check" size={14} color={theme.success} />
               ) : (
                 <Text style={[styles.dayNumber, { color: theme.textSecondary }]}>
                   {day}
@@ -217,7 +207,7 @@ function DayDetailModal({
         </View>
         
         <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
-          <View style={[styles.habitInfo, { backgroundColor: theme.backgroundSecondary }]}>
+          <View style={[styles.habitInfo, { backgroundColor: theme.backgroundDefault }]}>
             <View style={[styles.habitIconContainer, { backgroundColor: habit.color + "20" }]}>
               <Feather name={habit.icon as any} size={24} color={habit.color} />
             </View>
@@ -232,7 +222,7 @@ function DayDetailModal({
           </View>
           
           <View style={styles.monthGridContainer}>
-            <ThemedText type="h4" style={styles.monthGridTitle}>Monthly Progress</ThemedText>
+            <ThemedText type="title" style={styles.monthGridTitle}>Monthly Progress</ThemedText>
             <ScrollView style={{ marginTop: Spacing.md }}>
               <MonthDetailGrid habit={habit} completions={completions} />
             </ScrollView>
@@ -243,10 +233,8 @@ function DayDetailModal({
   );
 }
 
-// Animated Components
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
-// Main Component
 export default function HabitDetailScreen() {
   const insets = useSafeAreaInsets();
   const route = useRoute<RouteProp<RootStackParamList, "HabitDetail">>();
@@ -256,10 +244,8 @@ export default function HabitDetailScreen() {
   
   const { habitId } = route.params;
   
-  // State
   const [habit, setHabit] = useState<Habit | null>(null);
   const [stats, setStats] = useState<HabitStats | null>(null);
-  const [sessions, setSessions] = useState<CompletionSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [menuVisible, setMenuVisible] = useState(false);
   const [dayDetailVisible, setDayDetailVisible] = useState(false);
@@ -267,22 +253,16 @@ export default function HabitDetailScreen() {
   const [selectedCompleted, setSelectedCompleted] = useState<boolean | null>(null);
   const [habitCompletionsMap, setHabitCompletionsMap] = useState<Map<string, boolean>>(new Map());
   
-  // Animated values
-  const headerScale = useSharedValue(1);
   const statsOpacity = useSharedValue(0);
-  const buttonScale = useSharedValue(1);
   
-  // Get today's date string
   const today = useMemo(() => new Date().toISOString().split("T")[0], []);
   
-  // Fetch habit data
   const fetchHabitData = useCallback(async () => {
     if (!isInitialized) return;
     
     try {
       setLoading(true);
       
-      // Fetch habit
       const habitData = await db.getHabitById(habitId);
       if (!habitData) {
         navigation.goBack();
@@ -290,8 +270,6 @@ export default function HabitDetailScreen() {
       }
       setHabit(habitData);
       
-      // Fetch completions for stats calculation
-      // Get all completions for this habit in the last 90 days
       const ninetyDaysAgo = new Date();
       ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
       const completions = await db.getCompletionsForHabitInRange(
@@ -300,7 +278,6 @@ export default function HabitDetailScreen() {
         new Date().toISOString().split("T")[0]
       );
       
-      // Create a map of all completions for the month
       const now = new Date();
       const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0];
       const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split("T")[0];
@@ -316,7 +293,6 @@ export default function HabitDetailScreen() {
         completionsMap.set(completion.date, completion.completed);
       });
       
-      // Fill in missing days with false values
       const currentMonth = now.getMonth();
       const currentYear = now.getFullYear();
       const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
@@ -330,27 +306,9 @@ export default function HabitDetailScreen() {
       
       setHabitCompletionsMap(completionsMap);
       
-      // Calculate stats
       const calculatedStats = calculateStats(completions, habitData);
       setStats(calculatedStats);
       
-      // Process sessions for history log
-      // Fetch actual session data from TimeTrackingService
-      const sessionData = await TimeTrackingService.getSessionHistory(habitId, 10);
-      
-      // Map session data to completion sessions
-      const mappedSessions = sessionData.map(session => ({
-        id: session.id || Math.random(),
-        date: session.createdDate,
-        duration: session.durationSeconds,
-        completed: true, // All saved sessions are completed
-        createdAt: session.endedAt,
-        mode: session.mode
-      })).sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-      
-      setSessions(mappedSessions);
-      
-      // Animate in stats
       setTimeout(() => {
         statsOpacity.value = withTiming(1, { duration: 500 });
       }, 300);
@@ -362,9 +320,7 @@ export default function HabitDetailScreen() {
     }
   }, [habitId, isInitialized, navigation, today, statsOpacity]);
   
-  // Calculate habit statistics
   const calculateStats = (completions: { date: string; completed: boolean }[], habit: Habit): HabitStats => {
-    // Current streak calculation
     let streak = 0;
     const sortedCompletions = [...completions].sort((a: any, b: any) => 
       new Date(b.date).getTime() - new Date(a.date).getTime()
@@ -386,7 +342,6 @@ export default function HabitDetailScreen() {
       }
     }
     
-    // Last 30 days consistency
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
     
@@ -395,17 +350,15 @@ export default function HabitDetailScreen() {
     );
     const consistency = Math.round((recentCompletions.length / 30) * 100);
     
-    // Weekly completions (last 7 days)
     const weekAgo = new Date();
     weekAgo.setDate(weekAgo.getDate() - 7);
     const weeklyCompletions = completions
       .filter((c: any) => new Date(c.date) >= weekAgo && c.completed)
       .map((c: any) => {
-        const dayIndex = (new Date(c.date).getDay() + 6) % 7; // Monday = 0
+        const dayIndex = (new Date(c.date).getDay() + 6) % 7;
         return dayIndex;
       });
     
-    // Monthly completions grouped by calendar week of the month
     const monthlyCompletions: Record<string, number> = {};
     const now = new Date();
     const currentMonth = now.getMonth();
@@ -431,23 +384,11 @@ export default function HabitDetailScreen() {
     };
   };
   
-  // Menu actions
   const handleEdit = useCallback(() => {
     setMenuVisible(false);
     navigation.navigate("EditHabit", { habitId });
   }, [navigation, habitId]);
   
-  const handlePauseResume = useCallback(() => {
-    setMenuVisible(false);
-    // Implement pause/resume logic
-  }, []);
-  
-  const handleDelete = useCallback(() => {
-    setMenuVisible(false);
-    // Implement delete logic
-  }, []);
-  
-  // Handle "View All" button press - open modal with today's date
   const handleViewAllPress = useCallback(() => {
     const today = new Date().toISOString().split("T")[0];
     const isCompleted = habitCompletionsMap.get(today) ?? false;
@@ -457,25 +398,14 @@ export default function HabitDetailScreen() {
     setDayDetailVisible(true);
   }, [habitCompletionsMap]);
   
-  // Animated styles
-  const headerAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: headerScale.value }]
-  }));
-  
   const statsAnimatedStyle = useAnimatedStyle(() => ({
     opacity: statsOpacity.value
   }));
   
-  const buttonAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: buttonScale.value }]
-  }));
-  
-  // Effects
   useEffect(() => {
     fetchHabitData();
   }, [fetchHabitData]);
   
-  // Loading state
   if (loading || !habit || !stats) {
     return (
       <ThemedView style={styles.container}>
@@ -493,21 +423,15 @@ export default function HabitDetailScreen() {
     );
   }
   
-  // Calculate max completions for scaling the monthly chart
-  const maxMonthlyCompletions = Math.max(
-    ...Object.values(stats.monthlyCompletions),
-    1 // Avoid division by zero
-  );
-  
   return (
     <ThemedView style={styles.container}>
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top }]}>
-        <Pressable onPress={() => navigation.goBack()}>
+        <Pressable onPress={() => navigation.goBack()} hitSlop={8}>
           <Feather name="arrow-left" size={24} color={theme.text} />
         </Pressable>
-        <ThemedText type="h4">Detail</ThemedText>
-        <Pressable onPress={() => setMenuVisible(!menuVisible)}>
+        <ThemedText type="title">Detail</ThemedText>
+        <Pressable onPress={() => setMenuVisible(!menuVisible)} hitSlop={8}>
           <Feather name="more-vertical" size={24} color={theme.text} />
         </Pressable>
       </View>
@@ -522,13 +446,9 @@ export default function HabitDetailScreen() {
             <Feather name="edit" size={16} color={theme.text} />
             <ThemedText style={styles.menuText}>Edit Habit</ThemedText>
           </Pressable>
-          <Pressable style={styles.menuItem} onPress={handlePauseResume}>
-            <Feather name="pause" size={16} color={theme.text} />
-            <ThemedText style={styles.menuText}>Pause / Resume</ThemedText>
-          </Pressable>
-          <Pressable style={styles.menuItem} onPress={handleDelete}>
-            <Feather name="trash-2" size={16} color={theme.error} />
-            <ThemedText style={[styles.menuText, { color: theme.error }]}>Delete Habit</ThemedText>
+          <Pressable style={styles.menuItem} onPress={() => setMenuVisible(false)}>
+            <Feather name="x" size={16} color={theme.text} />
+            <ThemedText style={styles.menuText}>Close</ThemedText>
           </Pressable>
         </Animated.View>
       )}
@@ -538,13 +458,13 @@ export default function HabitDetailScreen() {
         contentContainerStyle={{ paddingBottom: insets.bottom + Spacing.xl }}
         showsVerticalScrollIndicator={false}
       >
-        {/* Habit Hero Section */}
+        {/* ZONE 1: Summary - Hero Section */}
         <Animated.View 
           style={headerAnimatedStyle}
           entering={FadeInUp.delay(100)}
         >
-          <View style={[styles.heroSection, { backgroundColor: theme.backgroundSecondary }]}>
-            <View style={[styles.habitIconContainer, { backgroundColor: habit.color + "20" }]}>
+          <View style={[styles.heroSection, { backgroundColor: theme.backgroundDefault }]}>
+            <View style={[styles.habitIconContainerLarge, { backgroundColor: habit.color + "20" }]}>
               <Feather name={habit.icon as any} size={32} color={habit.color} />
             </View>
             
@@ -552,130 +472,56 @@ export default function HabitDetailScreen() {
               <View style={[styles.statusIndicator, { backgroundColor: 
                 habit.active ? theme.success : theme.textSecondary
               }]} />
-              <ThemedText type="small" style={{ textTransform: 'capitalize' }}>
-                {habit.active ? 'active' : 'inactive'}
+              <ThemedText type="small">
+                {habit.active ? 'Active' : 'Inactive'}
               </ThemedText>
             </View>
             
             <ThemedText type="h2" style={styles.habitName}>
               {habit.name}
             </ThemedText>
-            
-            <View style={styles.goalInfo}>
-              <Feather name="target" size={16} color={theme.textSecondary} />
-              <ThemedText type="body" secondary style={{ marginLeft: Spacing.xs }}>
-                {`Daily Habit: ${habit.name}`}
-              </ThemedText>
-            </View>
           </View>
         </Animated.View>
         
-        {/* Stats Cards */}
+        {/* ZONE 2: Analytics - Stats Cards */}
         <Animated.View 
           style={[styles.statsSection, statsAnimatedStyle]}
           entering={FadeInUp.delay(300)}
         >
           <View style={styles.statsRow}>
-            <View style={[styles.statCard, { backgroundColor: theme.backgroundSecondary }]}>
-              <Feather name="trending-up" size={24} color={theme.primary} />
-              <ThemedText type="small" secondary style={styles.statLabel}>
+            <View style={[styles.statCard, { backgroundColor: theme.backgroundDefault }]}>
+              <Feather name="zap" size={20} color={theme.primary} />
+              <ThemedText type="caption" secondary style={styles.statLabel}>
                 Streak
               </ThemedText>
-              <ThemedText type="h3" style={styles.statValue}>
+              <ThemedText type="h3" style={[styles.statValue, { color: theme.primary }]}>
                 {stats.streak}
               </ThemedText>
-              <ThemedText type="small" secondary>
-                days
-              </ThemedText>
+              <ThemedText type="caption" secondary>days</ThemedText>
             </View>
             
-            <View style={[styles.statCard, { backgroundColor: theme.backgroundSecondary }]}>
-              <Feather name="bar-chart-2" size={24} color={theme.primary} />
-              <ThemedText type="small" secondary style={styles.statLabel}>
+            <View style={[styles.statCard, { backgroundColor: theme.backgroundDefault }]}>
+              <Feather name="bar-chart-2" size={20} color={theme.success} />
+              <ThemedText type="caption" secondary style={styles.statLabel}>
                 Consistency
               </ThemedText>
-              <ThemedText type="h3" style={styles.statValue}>
+              <ThemedText type="h3" style={[styles.statValue, { color: theme.success }]}>
                 {stats.consistency}%
               </ThemedText>
+              <ThemedText type="caption" secondary>30 days</ThemedText>
             </View>
           </View>
-        </Animated.View>
-        
-        {/* Total Time Spent */}
-        <Animated.View 
-          entering={FadeInUp.delay(600)}
-          style={styles.section}
-        >
-          <View style={styles.sectionHeader}>
-            <ThemedText type="h4">Time Spent</ThemedText>
-            <Pressable>
-              <ThemedText type="small" style={{ color: theme.primary }}>
-                View All
-              </ThemedText>
-            </Pressable>
-          </View>
-          
-          <View style={[styles.statCard, { backgroundColor: theme.backgroundSecondary }]}> 
-            <ThemedText type="h3" style={styles.statValue}>
-              {(() => {
-                const totalSeconds = sessions.reduce((sum, session) => sum + (session.duration || 0), 0);
-                const totalMinutes = Math.floor(totalSeconds / 60);
-                const remainingSeconds = totalSeconds % 60;
-                return totalMinutes > 0 ? 
-                  `${totalMinutes}m ${remainingSeconds > 0 ? remainingSeconds + 's' : ''}`.trim() : 
-                  `${remainingSeconds}s`;
-              })()}
-            </ThemedText>
-            <ThemedText type="small" secondary>
-              total time
-            </ThemedText>
-          </View>
-        </Animated.View>
-        
-        {/* Start Button */}
-        <Animated.View 
-          entering={FadeInUp.delay(500)}
-          style={styles.startButtonContainer}
-        >
-          <AnimatedPressable
-            style={[
-              styles.startButton,
-              { 
-                backgroundColor: theme.primary,
-                transform: [{ scale: buttonScale.value }]
-              }
-            ]}
-            onPressIn={() => {
-              buttonScale.value = withSpring(0.98);
-            }}
-            onPressOut={() => {
-              buttonScale.value = withSpring(1);
-            }}
-            onPress={() => {
-              navigation.navigate('HabitTimer', { 
-                habitId: habitId.toString(), 
-                habitName: habit.name 
-              });
-            }}
-          >
-            <Feather name="play" size={24} color="#FFFFFF" />
-            <ThemedText style={styles.startButtonText}>
-              Start
-            </ThemedText>
-          </AnimatedPressable>
         </Animated.View>
         
         {/* Weekly Progress */}
         <Animated.View 
-          entering={FadeInUp.delay(700)}
+          entering={FadeInUp.delay(500)}
           style={styles.section}
         >
           <View style={styles.sectionHeader}>
-            <ThemedText type="h4">This Week</ThemedText>
-            <Pressable onPress={handleViewAllPress}>
-              <ThemedText type="small" style={{ color: theme.primary }}>
-                View All
-              </ThemedText>
+            <ThemedText type="title">This Week</ThemedText>
+            <Pressable onPress={handleViewAllPress} hitSlop={8}>
+              <ThemedText type="small" style={{ color: theme.primary }}>View All</ThemedText>
             </Pressable>
           </View>
           
@@ -701,9 +547,9 @@ export default function HabitDetailScreen() {
                   ]}
                 >
                   {isCompleted ? (
-                    <Feather name="check" size={16} color={theme.success} />
+                    <Feather name="check" size={14} color={theme.success} />
                   ) : (
-                    <ThemedText type="small" secondary={!isToday}>
+                    <ThemedText type="caption" secondary={!isToday}>
                       {day.charAt(0)}
                     </ThemedText>
                   )}
@@ -715,96 +561,41 @@ export default function HabitDetailScreen() {
         
         {/* Monthly Overview */}
         <Animated.View 
-          entering={FadeInUp.delay(900)}
+          entering={FadeInUp.delay(700)}
           style={styles.section}
         >
           <View style={styles.sectionHeader}>
             <View>
-              <ThemedText type="h4">Monthly Overview</ThemedText>
-              <ThemedText type="small" secondary>
+              <ThemedText type="title">Monthly Overview</ThemedText>
+              <ThemedText type="caption" secondary>
                 Last 30 Days
-              </ThemedText>
-            </View>
-            <View style={styles.trendBadge}>
-              <ThemedText type="small" style={{ color: theme.success }}>
-                +12%
               </ThemedText>
             </View>
           </View>
           
-          <View style={styles.chartContainer}>
+          <View style={[styles.chartContainer, { backgroundColor: theme.backgroundDefault }]}>
             {Object.entries(stats.monthlyCompletions).map(([week, count], index) => (
               <View key={week} style={styles.chartBarContainer}>
                 <View 
                   style={[
                     styles.chartBar,
                     { 
-                      height: `${(count / maxMonthlyCompletions) * 100}%`,
-                      backgroundColor: theme.primary + (0.3 + (index * 0.15))
+                      height: `${Math.max((count / 7) * 100, 10)}%`,
+                      backgroundColor: theme.primary
                     }
                   ]}
                 />
-                <ThemedText type="small" secondary>
-                  {week}
+                <ThemedText type="caption" secondary>
+                  {week.replace('Week ', 'W')}
                 </ThemedText>
               </View>
             ))}
-          </View>
-        </Animated.View>
-        
-        {/* History Log */}
-        <Animated.View 
-          entering={FadeInUp.delay(1100)}
-          style={styles.section}
-        >
-          <ThemedText type="h4" style={styles.sectionTitle}>
-            History
-          </ThemedText>
-          
-          {sessions.length === 0 ? (
-            <View style={styles.emptyState}>
-              <Feather name="clock" size={48} color={theme.textSecondary} />
-              <ThemedText type="body" secondary style={{ textAlign: 'center', marginTop: Spacing.md }}>
-                No sessions recorded yet
+            {Object.keys(stats.monthlyCompletions).length === 0 && (
+              <ThemedText type="body" secondary style={styles.noDataText}>
+                No completions this month
               </ThemedText>
-            </View>
-          ) : (
-            sessions.slice(0, 10).map((session) => (
-              <View 
-                key={session.id}
-                style={[styles.historyItem, { backgroundColor: theme.backgroundSecondary }]}
-              >
-                <View style={styles.historyIcon}>
-                  {session.completed ? (
-                    <Feather name="check-circle" size={20} color={theme.success} />
-                  ) : (
-                    <Feather name="x-circle" size={20} color={theme.error} />
-                  )}
-                </View>
-                
-                <View style={styles.historyContent}>
-                  <ThemedText type="body" style={{ fontWeight: '600' }}>
-                    Time spent
-                  </ThemedText>
-                  <ThemedText type="small" secondary>
-                    {getTimeAgo(session.createdAt)}
-                  </ThemedText>
-                </View>
-                
-                <View style={styles.historyDuration}>
-                  {session.duration ? (
-                    <ThemedText type="small">
-                      {Math.floor(session.duration / 60)}m {session.duration % 60}s
-                    </ThemedText>
-                  ) : (
-                    <ThemedText type="small" secondary>
-                      —
-                    </ThemedText>
-                  )}
-                </View>
-              </View>
-            ))
-          )}
+            )}
+          </View>
         </Animated.View>
       </ScrollView>
       
@@ -822,17 +613,14 @@ export default function HabitDetailScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
+  container: { flex: 1 },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(255,255,255,0.1)',
   },
   menuDropdown: {
     position: 'absolute',
@@ -841,225 +629,57 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.md,
     padding: Spacing.sm,
     elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
     zIndex: 1000,
   },
-  menuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: Spacing.xs,
-    paddingHorizontal: Spacing.sm,
-  },
-  menuText: {
-    marginLeft: Spacing.sm,
-    fontWeight: '500',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  content: {
-    flex: 1,
-  },
-  heroSection: {
-    alignItems: 'center',
-    padding: Spacing.xl,
-    margin: Spacing.lg,
-    borderRadius: BorderRadius.lg,
-  },
-  habitIconContainer: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: Spacing.md,
-  },
-  statusPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.xs,
-    borderRadius: 20,
-    marginBottom: Spacing.lg,
-  },
-  statusIndicator: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginRight: Spacing.xs,
-  },
-  habitName: {
-    marginBottom: Spacing.sm,
-    textAlign: 'center',
-  },
-  goalInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  statsSection: {
-    marginHorizontal: Spacing.lg,
-    marginBottom: Spacing.xl,
-  },
-  statsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: Spacing.md,
-  },
-  statCard: {
-    flex: 1,
-    padding: Spacing.lg,
-    borderRadius: BorderRadius.md,
-    alignItems: 'center',
-  },
-  statLabel: {
-    marginBottom: Spacing.xs,
-  },
-  statValue: {
-    marginBottom: Spacing.xs,
-  },
-  startButtonContainer: {
-    marginHorizontal: Spacing.lg,
-    marginBottom: Spacing.xl,
-    alignItems: 'center',
-  },
-  startButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: Spacing.lg,
-    borderRadius: BorderRadius.md,
-    width: '50%',
-  },
-  startButtonText: {
-    color: '#FFFFFF',
-    fontWeight: '600',
-    marginLeft: Spacing.sm,
-  },
-  section: {
-    marginHorizontal: Spacing.lg,
-    marginBottom: Spacing.xl,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: Spacing.lg,
-  },
-  sectionTitle: {
-    marginBottom: Spacing.lg,
-  },
-  weeklyGrid: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  dayCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  trendBadge: {
-    backgroundColor: 'rgba(76, 175, 80, 0.2)',
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: Spacing.xs,
-    borderRadius: 12,
-  },
-  chartContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-end',
-    height: 120,
-    paddingTop: Spacing.lg,
-  },
-  chartBarContainer: {
-    alignItems: 'center',
-    flex: 1,
-  },
-  chartBar: {
-    width: 30,
-    borderRadius: 4,
-    marginBottom: Spacing.sm,
-  },
-  historyItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: Spacing.md,
-    borderRadius: BorderRadius.md,
-    marginBottom: Spacing.sm,
-  },
-  historyIcon: {
-    marginRight: Spacing.md,
-  },
-  historyContent: {
-    flex: 1,
-  },
-  historyDuration: {
-    alignItems: 'flex-end',
-  },
-  emptyState: {
-    alignItems: 'center',
-    padding: Spacing.xl,
-  },
-  // Modal styles
-  modalContainer: {
-    flex: 1,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(255,255,255,0.1)',
-  },
-  modalContent: {
-    flex: 1,
-    padding: Spacing.lg,
-  },
-  habitInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: Spacing.lg,
-    borderRadius: BorderRadius.md,
-    marginBottom: Spacing.lg,
-  },
-  habitDetails: {
-    flex: 1,
-    marginLeft: Spacing.md,
-  },
-  monthGridContainer: {
-    marginBottom: Spacing.lg,
-  },
-  monthGridTitle: {
-    marginBottom: Spacing.md,
-  },
-  // Month grid styles
-  dotsGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "flex-start",
-    marginTop: Spacing.sm,
-  },
-  dotWrapper: {
-    width: '14.28%', // 7 columns
-    alignItems: 'center',
-    marginBottom: Spacing.sm,
-  },
-  dayDot: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  dayNumber: {
-    fontWeight: '600',
-    fontSize: 12,
-    textAlign: 'center',
-  },
+  menuItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: Spacing.sm, paddingHorizontal: Spacing.sm },
+  menuText: { marginLeft: Spacing.sm, fontWeight: '500' },
+  content: { flex: 1 },
+  
+  // Hero Section
+  heroSection: { alignItems: 'center', padding: Spacing.xl, marginHorizontal: Spacing.lg, borderRadius: BorderRadius.lg, marginBottom: Spacing.xl },
+  habitIconContainerLarge: { width: 72, height: 72, borderRadius: 36, justifyContent: 'center', alignItems: 'center', marginBottom: Spacing.md },
+  statusPill: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Spacing.md, paddingVertical: Spacing.xs, borderRadius: 20, marginBottom: Spacing.md },
+  statusIndicator: { width: 8, height: 8, borderRadius: 4, marginRight: Spacing.xs },
+  habitName: { textAlign: 'center' },
+  
+  // Stats Section
+  statsSection: { marginHorizontal: Spacing.lg, marginBottom: Spacing.xl },
+  statsRow: { flexDirection: 'row', gap: Spacing.md },
+  statCard: { flex: 1, padding: Spacing.lg, borderRadius: BorderRadius.lg, alignItems: 'center' },
+  statLabel: { marginTop: Spacing.xs, marginBottom: Spacing.xs },
+  statValue: { marginBottom: Spacing.xs },
+  
+  // Section
+  section: { marginHorizontal: Spacing.lg, marginBottom: Spacing.xl },
+  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.lg },
+  
+  // Weekly Grid
+  weeklyGrid: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: Spacing.sm },
+  dayCircle: { width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center' },
+  
+  // Monthly Chart
+  chartContainer: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'flex-end', padding: Spacing.lg, borderRadius: BorderRadius.lg, minHeight: 120 },
+  chartBarContainer: { alignItems: 'center', flex: 1 },
+  chartBar: { width: 24, borderRadius: 4, minHeight: 8 },
+  noDataText: { textAlign: 'center', padding: Spacing.xl },
+  
+  // Modal
+  modalContainer: { flex: 1 },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md },
+  modalContent: { flex: 1, paddingHorizontal: Spacing.lg },
+  habitInfo: { flexDirection: 'row', alignItems: 'center', padding: Spacing.lg, borderRadius: BorderRadius.lg, marginBottom: Spacing.xl },
+  habitIconContainer: { width: 48, height: 48, borderRadius: 24, justifyContent: 'center', alignItems: 'center', marginRight: Spacing.md },
+  habitDetails: { flex: 1 },
+  modalStatusIndicator: { width: 12, height: 12, borderRadius: 6 },
+  monthGridContainer: { marginBottom: Spacing.xl },
+  monthGridTitle: { marginBottom: Spacing.md },
+  dotsGrid: { flexDirection: 'row', flexWrap: 'wrap' },
+  dotWrapper: { width: '14.28%', aspectRatio: 1, justifyContent: 'center', alignItems: 'center' },
+  dayDot: { justifyContent: 'center', alignItems: 'center' },
+  dayNumber: { fontSize: 10 },
 });
+
+const headerAnimatedStyle = {};
+
+// Need to add proper animation import
+import { useAnimatedStyle as useHeaderAnimatedStyle } from "react-native-reanimated";

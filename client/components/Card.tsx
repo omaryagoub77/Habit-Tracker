@@ -40,7 +40,7 @@ const getBackgroundColorForElevation = (
     case 3:
       return theme.backgroundTertiary;
     default:
-      return theme.backgroundRoot;
+      return theme.backgroundDefault;
   }
 };
 
@@ -64,27 +64,15 @@ export function Card({
   }));
 
   const handlePressIn = () => {
-    scale.value = withSpring(0.98, springConfig);
+    scale.value = withSpring(0.99, springConfig);
   };
 
   const handlePressOut = () => {
     scale.value = withSpring(1, springConfig);
   };
 
-  return (
-    <AnimatedPressable
-      onPress={onPress}
-      onPressIn={handlePressIn}
-      onPressOut={handlePressOut}
-      style={[
-        styles.card,
-        {
-          backgroundColor: cardBackgroundColor,
-        },
-        animatedStyle,
-        style,
-      ]}
-    >
+  const cardContent = (
+    <>
       {title ? (
         <ThemedText type="h4" style={styles.cardTitle}>
           {title}
@@ -96,14 +84,48 @@ export function Card({
         </ThemedText>
       ) : null}
       {children}
-    </AnimatedPressable>
+    </>
+  );
+
+  if (onPress) {
+    return (
+      <AnimatedPressable
+        onPress={onPress}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        style={[
+          styles.card,
+          {
+            backgroundColor: cardBackgroundColor,
+          },
+          animatedStyle,
+          style,
+        ]}
+      >
+        {cardContent}
+      </AnimatedPressable>
+    );
+  }
+
+  return (
+    <Animated.View
+      style={[
+        styles.card,
+        {
+          backgroundColor: cardBackgroundColor,
+        },
+        style,
+      ]}
+    >
+      {cardContent}
+    </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
-    padding: Spacing.xl,
-    borderRadius: BorderRadius["2xl"],
+    padding: Spacing.lg, // 16px - consistent card padding
+    borderRadius: BorderRadius.lg, // 16px - standard card radius
   },
   cardTitle: {
     marginBottom: Spacing.sm,

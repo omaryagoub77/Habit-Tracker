@@ -58,10 +58,10 @@ function getGreetingMessage(): string {
 function getEncouragementText(completionPercentage: number): string {
   // Be defensive against NaN / weird values
   const pct = Number.isFinite(completionPercentage) ? completionPercentage : 0;
-  if (pct <= 0) return "Let's get started! You've got this.";
-  if (pct >= 100) return "Amazing work! You've crushed your goals for today!";
-  if (pct <= 50) return "Great start! One step at a time.";
-  return "You're over halfway there! Keep pushing.";
+  if (pct <= 0) return "Let's get started. You've got this.";
+  if (pct >= 100) return "Well done. You've completed all your goals.";
+  if (pct <= 50) return "Great start. One step at a time.";
+  return "You're making progress. Keep going.";
 }
 
 interface HabitCardProps {
@@ -70,8 +70,6 @@ interface HabitCardProps {
   isSelected: boolean;
   isSelectionMode: boolean;
   onToggle: () => void;
-  onEdit: () => void;
-  onStartTimer: () => void;
   onViewDetail: () => void;
   onSelect: () => void;
   onEnterSelectionMode: () => void;
@@ -83,8 +81,6 @@ const HabitCard = memo(({
   isSelected,
   isSelectionMode,
   onToggle, 
-  onEdit, 
-  onStartTimer, 
   onViewDetail,
   onSelect,
   onEnterSelectionMode
@@ -97,7 +93,7 @@ const HabitCard = memo(({
   }));
 
   const handlePressIn = useCallback(() => {
-    scale.value = withSpring(0.98, { damping: 15, stiffness: 150 });
+    scale.value = withSpring(0.99, { damping: 15, stiffness: 150 });
   }, []);
 
   const handlePressOut = useCallback(() => {
@@ -122,22 +118,11 @@ const HabitCard = memo(({
     }
   }, [isSelectionMode, onSelect, onEnterSelectionMode]);
 
-  let subtitle = '';
-  if (habit.name === 'Drink Water') {
-    subtitle = 'Target: 2000ml';
-  } else if (habit.name === 'Read for 20 mins') {
-    subtitle = '5 day streak';
-  } else if (habit.name === 'Morning Workout') {
-    subtitle = 'High Intensity';
-  } else if (isCompleted) {
-    subtitle = 'Completed at 7:30 AM';
-  }
-
   return (
     <AnimatedPressable
       style={[
         styles.habitCard,
-        { backgroundColor: theme.backgroundSecondary },
+        { backgroundColor: theme.backgroundDefault },
         isSelected && styles.habitCardSelected,
         animatedStyle,
       ]}
@@ -151,10 +136,10 @@ const HabitCard = memo(({
         <View
           style={[
             styles.habitIconContainer,
-            { backgroundColor: habit?.color + "20" },
+            { backgroundColor: (habit?.color || '#4A7C59') + "20" },
           ]}
         >
-          <Feather name={(habit?.icon || 'activity') as any} size={20} color={habit?.color} />
+          <Feather name={(habit?.icon || 'activity') as any} size={20} color={habit?.color || '#4A7C59'} />
         </View>
         <View style={styles.habitInfo}>
           <ThemedText
@@ -163,29 +148,15 @@ const HabitCard = memo(({
           >
             {habit?.name || 'Unknown Habit'}
           </ThemedText>
-          {subtitle && (
-            <ThemedText
-              type="small"
-              secondary
-              style={styles.habitSubtitle}
-            >
-              {subtitle}
-            </ThemedText>
-          )}
         </View>
       </View>
       <View style={styles.habitActions}>
         <Pressable
           style={[styles.detailButton, { backgroundColor: theme.backgroundSecondary }]}
           onPress={onViewDetail}
+          hitSlop={8}
         >
-          <Feather name="info" size={20} color={theme.text} />
-        </Pressable>
-        <Pressable
-          style={[styles.playButton, { backgroundColor: theme.primary }]}
-          onPress={onStartTimer}
-        >
-          <Feather name="play" size={14} color="#FFFFFF" />
+          <Feather name="chevron-right" size={18} color={theme.textSecondary} />
         </Pressable>
         <Pressable
           style={[
@@ -197,7 +168,7 @@ const HabitCard = memo(({
           ]}
           onPress={handlePress}
         >
-          {isCompleted ? <Feather name="check" size={16} color="#FFFFFF" /> : null}
+          {isCompleted ? <Feather name="check" size={14} color="#FFFFFF" /> : null}
         </Pressable>
       </View>
     </AnimatedPressable>
@@ -207,7 +178,7 @@ const HabitCard = memo(({
 export default function TodayScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const { theme } = useTheme();
+  const { theme, isDark } = useTheme();
   const { isInitialized, isLoading: dbLoading } = useDatabase();
   const { habits, isLoading: habitsLoading, refresh: refreshHabits, deleteHabit } = useHabits();
   const { settings } = useUserSettings();
@@ -273,7 +244,6 @@ export default function TodayScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              // Use the deleteHabit function from the hook
               for (const id of selectedHabitIds) {
                 await deleteHabit(id);
               }
@@ -286,7 +256,7 @@ export default function TodayScreen() {
         }
       ]
     );
-  }, [selectedHabitIds, refreshHabits, exitSelectionMode]);
+  }, [selectedHabitIds, deleteHabit, exitSelectionMode]);
 
   const handleEditSelected = useCallback(() => {
     if (selectedHabitIds.size === 1) {
@@ -314,17 +284,6 @@ export default function TodayScreen() {
 
   // --- Existing Handlers ---
 
-  const handleStartTimer = useCallback((habitId: number) => {
-    if (isSelectionMode) return;
-    const habit = habits.find(h => h.id === habitId);
-    if (habit) {
-      navigation.navigate('HabitTimer', { 
-        habitId: habitId.toString(), 
-        habitName: habit.name 
-      });
-    }
-  }, [navigation, habits, isSelectionMode]);
-
   const handleViewDetail = useCallback((habitId: number) => {
     if (isSelectionMode) return;
     const habit = habits.find(h => h.id === habitId);
@@ -337,8 +296,6 @@ export default function TodayScreen() {
 
   const memoizedToggleCompletion = useCallback(toggleCompletion, [toggleCompletion]);
   
-  const handleLegacyEdit = useCallback(() => {}, []);
-
   const habitCards = useMemo(() => habits.map((habit) => (
     <HabitCard
       key={habit.id}
@@ -347,8 +304,6 @@ export default function TodayScreen() {
       isSelected={selectedHabitIds.has(habit.id)}
       isSelectionMode={isSelectionMode}
       onToggle={() => memoizedToggleCompletion(habit.id)}
-      onEdit={handleLegacyEdit}
-      onStartTimer={() => handleStartTimer(habit.id)}
       onViewDetail={() => handleViewDetail(habit.id)}
       onSelect={() => toggleHabitSelection(habit.id)}
       onEnterSelectionMode={() => enterSelectionMode(habit.id)}
@@ -356,14 +311,12 @@ export default function TodayScreen() {
   )), [
     habits, 
     completions, 
-    memoizedToggleCompletion, 
-    handleStartTimer, 
+    memoizedToggleCompletion,
     handleViewDetail, 
     selectedHabitIds, 
     isSelectionMode, 
     toggleHabitSelection, 
-    enterSelectionMode,
-    handleLegacyEdit
+    enterSelectionMode
   ]);
 
   if (isLoading) {
@@ -382,10 +335,10 @@ export default function TodayScreen() {
           {isSelectionMode ? (
             <View style={styles.selectionBar}>
               <TouchableOpacity onPress={exitSelectionMode} hitSlop={10}>
-                <ThemedText style={{fontWeight: '600', color: theme.text}}>Cancel</ThemedText>
+                <ThemedText style={{fontWeight: '500', color: theme.text}}>Cancel</ThemedText>
               </TouchableOpacity>
               
-              <ThemedText type="body" style={{fontWeight: '600'}}>
+              <ThemedText type="body" style={{fontWeight: '500'}}>
                 {selectedHabitIds.size} Selected
               </ThemedText>
 
@@ -395,44 +348,41 @@ export default function TodayScreen() {
                   disabled={selectedHabitIds.size !== 1}
                   style={{ opacity: selectedHabitIds.size === 1 ? 1 : 0.3 }}
                 >
-                  <Feather name="edit-2" size={24} color={theme.text} />
+                  <Feather name="edit-2" size={20} color={theme.text} />
                 </TouchableOpacity>
                 <TouchableOpacity 
                   onPress={handleDeleteSelected}
                   disabled={selectedHabitIds.size === 0}
                   style={{ opacity: selectedHabitIds.size > 0 ? 1 : 0.3 }}
                 >
-                  <Feather name="trash-2" size={24} color={theme.statusError || '#FF3B30'} />
+                  <Feather name="trash-2" size={20} color={theme.error} />
                 </TouchableOpacity>
               </View>
             </View>
           ) : (
             <View style={styles.topBar}>
-              <Feather name="grid" size={24} color={theme.text} />
+              <ThemedText type="caption" secondary style={styles.dateText}>
+                {getCurrentDateInfo().formattedDate}
+              </ThemedText>
               <TouchableOpacity
                 accessibilityRole="button"
                 accessibilityLabel="Open settings"
                 hitSlop={10}
-                // Settings is a tab route (SettingsTab) in MainTabNavigator, not a RootStack route.
-                // Navigate to the tab so we don't crash / miss providers.
                 onPress={() => navigation.navigate('SettingsTab' as any)}
-                style={styles.avatarContainer}
+                style={styles.settingsButton}
               >
-                <Feather name="user" size={20} color={theme.text} />
+                <Feather name="settings" size={20} color={theme.textSecondary} />
               </TouchableOpacity>
             </View>
           )}
 
           {!isSelectionMode && (
-            <>
-              <ThemedText type="small" secondary style={styles.dateText}>
-                {getCurrentDateInfo().formattedDate}
+            <View style={styles.greetingContainer}>
+              <ThemedText style={[styles.greetingText, { color: theme.text }]}>
+                {getGreetingMessage()},{' '}
+                <ThemedText style={{ color: theme.primary }}>{settings?.displayName || 'User'}</ThemedText>
               </ThemedText>
-              <View style={styles.greeting}>
-                <ThemedText style={[styles.greetingText, { color: theme.primary }]}>{getGreetingMessage()},</ThemedText>
-                <ThemedText style={styles.greetingName}> {settings?.displayName || 'User'}</ThemedText>
-              </View>
-            </>
+            </View>
           )}
         </View>
       </View>
@@ -441,7 +391,7 @@ export default function TodayScreen() {
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={{
-          paddingBottom: 120 + Spacing.xl,
+          paddingBottom: 100 + Spacing.xl,
           paddingHorizontal: Spacing.lg,
         }}
         scrollIndicatorInsets={{ bottom: insets.bottom }}
@@ -450,45 +400,69 @@ export default function TodayScreen() {
         scrollEventThrottle={16}
       >
 
-        <ThemedView style={[styles.progressContainer, { backgroundColor: theme.backgroundSecondary }]}>
-          <ThemedText type="small" secondary>Today's Focus</ThemedText>
-          <View style={styles.progressInfo}>
-            <ThemedText style={styles.encourageText}>{encourageText}</ThemedText>
-            <ThemedText style={styles.percentage}>{percentage}%</ThemedText>
+        {/* Progress Section - Emotional Anchor */}
+        <View style={[styles.progressContainer, { backgroundColor: theme.backgroundDefault }]}>
+          <View style={styles.progressHeader}>
+            <ThemedText type="small" secondary>Today's Focus</ThemedText>
+            <ThemedText style={[styles.percentage, { color: theme.primary }]}>{percentage}%</ThemedText>
           </View>
-          <View style={styles.progressBar}>
-            <View style={[styles.progressFill, { width: `${percentage}%` }]} />
+          <ThemedText type="h3" style={styles.encourageText}>{encourageText}</ThemedText>
+          <View style={styles.progressBarContainer}>
+            <View style={[styles.progressBar, { backgroundColor: theme.backgroundSecondary }]}>
+              <View style={[styles.progressFill, { width: `${percentage}%`, backgroundColor: theme.primary }]} />
+            </View>
           </View>
           <View style={styles.progressStats}>
-            <ThemedText type="small" secondary>{completedCount}/{total} habits completed</ThemedText>
-            <ThemedText type="small" secondary>{total - completedCount} remaining</ThemedText>
+            <ThemedText type="caption" secondary>{completedCount} of {total} completed</ThemedText>
+            {total - completedCount > 0 && (
+              <ThemedText type="caption" secondary>{total - completedCount} remaining</ThemedText>
+            )}
           </View>
-        </ThemedView>
+        </View>
 
         {habits.length === 0 ? (
           <View style={styles.emptyState}>
-            <Feather name="sunrise" size={64} color={theme.textSecondary} />
+            <View style={[styles.emptyIconContainer, { backgroundColor: theme.backgroundSecondary }]}>
+              <Feather name="check-circle" size={48} color={theme.textSecondary} />
+            </View>
             <ThemedText type="body" secondary style={styles.emptyText}>
-              No habits yet. Tap + to create one.
+              No habits yet
+            </ThemedText>
+            <ThemedText type="small" secondary style={styles.emptySubtext}>
+              Tap + to create your first habit
             </ThemedText>
           </View>
         ) : (
           <>
-            <ThemedText type="small" secondary style={styles.sectionTitle}>
+            <ThemedText type="caption" secondary style={styles.sectionTitle}>
               Your Habits
             </ThemedText>
-            {habitCards}
+            <View style={styles.habitsList}>
+              {habitCards}
+            </View>
           </>
         )}
       </ScrollView>
       
       {!isSelectionMode && (
-        <Pressable
-          style={[styles.floatingAddButton, { backgroundColor: theme.primary }]}
-          onPress={() => navigation.navigate("NewHabit")}
-        >
-          <Feather name="plus" size={32} color="#FFFFFF" />
-        </Pressable>
+        <View style={[styles.fabContainer, { bottom: 130 }]}>
+          <Pressable
+            style={[
+              styles.floatingAddButton,
+              { backgroundColor: theme.primary },
+              {
+                shadowColor: isDark ? theme.shadowDark : theme.shadowLight,
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: isDark ? 0.4 : 0.15,
+                shadowRadius: 8,
+                elevation: isDark ? 8 : 4,
+              },
+            ]}
+            onPress={() => navigation.navigate("NewHabit")}
+          >
+            <Feather name="plus" size={24} color="#FFFFFF" />
+          </Pressable>
+        </View>
       )}
     
     </ThemedView>
@@ -509,105 +483,92 @@ const styles = StyleSheet.create({
   },
   header: {
     zIndex: 10,
-    marginBottom: Spacing.xl,
+    marginBottom: Spacing.lg,
   },
   topBar: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: Spacing.md,
-    height: 40,
+    marginBottom: Spacing.sm,
+  },
+  dateText: {
+    letterSpacing: 1,
+  },
+  settingsButton: {
+    padding: Spacing.xs,
+  },
+  greetingContainer: {
+    marginTop: Spacing.xs,
+  },
+  greetingText: {
+    fontSize: 16,
+    fontWeight: "500",
   },
   selectionBar: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: Spacing.md,
-    height: 40, 
   },
   selectionActions: {
     flexDirection: "row",
     gap: Spacing.lg,
   },
-  avatarContainer: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: "transparent",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  dateText: {
-    textTransform: "uppercase",
-    letterSpacing: 1,
-    marginBottom: Spacing.md,
-  },
-  greeting: {
-    flexDirection: "row",
-    alignItems: "baseline",
-    marginBottom: Spacing.xl,
-  },
-  greetingText: {
-    fontSize: 25,
-    fontWeight: "bold",
-  },
-  greetingName: {
-    fontSize: 25,
-    fontWeight: "bold",
-  },
+  // Progress Section
   progressContainer: {
     padding: Spacing.lg,
-    borderRadius: BorderRadius.md,
+    borderRadius: BorderRadius.lg,
     marginBottom: Spacing.xl,
   },
-  progressInfo: {
+  progressHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginTop: Spacing.xs,
     marginBottom: Spacing.sm,
-  },
-  encourageText: {
-    flex: 1,
   },
   percentage: {
-    fontWeight: "bold",
+    fontSize: 24,
+    fontWeight: "600",
+  },
+  encourageText: {
+    marginBottom: Spacing.lg,
+  },
+  progressBarContainer: {
+    marginBottom: Spacing.md,
   },
   progressBar: {
-    height: 4,
-    backgroundColor: "#003D3D", 
-    borderRadius: 2,
+    height: 8,
+    borderRadius: 4,
     overflow: "hidden",
-    marginBottom: Spacing.sm,
   },
   progressFill: {
     height: "100%",
-    backgroundColor: "#00FF7F", 
-    borderRadius: 2,
+    borderRadius: 4,
   },
   progressStats: {
     flexDirection: "row",
     justifyContent: "space-between",
   },
+  // Habits Section
   sectionTitle: {
-    textTransform: "uppercase",
     letterSpacing: 1,
     marginBottom: Spacing.md,
+    textTransform: "uppercase",
   },
+  habitsList: {
+    gap: Spacing.md,
+  },
+  // Habit Card - Refined Design
   habitCard: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     padding: Spacing.lg,
-    borderRadius: BorderRadius.md,
-    marginBottom: Spacing.sm,
-    borderWidth: 2,
-    borderColor: 'transparent', 
+    borderRadius: BorderRadius.lg,
   },
   habitCardSelected: {
     borderWidth: 2,
-    borderColor: '#007AFF',
-    backgroundColor: 'rgba(0,122,255,0.1)',
+    borderColor: undefined, // Will use theme primary
   },
   habitContent: {
     flexDirection: "row",
@@ -617,7 +578,7 @@ const styles = StyleSheet.create({
   habitIconContainer: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: BorderRadius.sm,
     justifyContent: "center",
     alignItems: "center",
     marginRight: Spacing.md,
@@ -626,11 +587,10 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   habitName: {
-    marginBottom: Spacing.xs,
+    fontSize: 16,
+    fontWeight: "500",
   },
-  habitSubtitle: {},
   habitCompleted: {
-    textDecorationLine: "line-through",
     opacity: 0.6,
   },
   habitActions: {
@@ -641,66 +601,47 @@ const styles = StyleSheet.create({
   detailButton: {
     width: 32,
     height: 32,
-    borderRadius: 16,
+    borderRadius: BorderRadius.sm,
     justifyContent: "center",
     alignItems: "center",
-    marginRight: Spacing.xs,
-  },
-  playButton: {
-    width: 24,
-    height: 24,
-    borderRadius: 16,
-    justifyContent: "center",
-    alignItems: "center",
-      marginRight: Spacing.xs,
   },
   checkbox: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: 28,
+    height: 28,
+    borderRadius: BorderRadius.sm,
     borderWidth: 2,
     justifyContent: "center",
     alignItems: "center",
   },
+  // Empty State - Elegant
   emptyState: {
-    flex: 1,
+    alignItems: "center",
+    paddingVertical: Spacing["3xl"],
+  },
+  emptyIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
     justifyContent: "center",
     alignItems: "center",
-    paddingVertical: Spacing["5xl"],
+    marginBottom: Spacing.lg,
   },
   emptyText: {
-    marginTop: Spacing.lg,
-    textAlign: "center",
+    marginBottom: Spacing.xs,
+  },
+  emptySubtext: {
+    opacity: 0.7,
+  },
+  // FAB - Reduced weight
+  fabContainer: {
+    position: "absolute",
+    right: Spacing.lg,
   },
   floatingAddButton: {
-    position: "absolute",
-    bottom: 115,
-    alignSelf: "center",
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     justifyContent: "center",
     alignItems: "center",
-    shadowColor: "#00FF7F",
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.5,
-    shadowRadius: 10,
-    elevation: 5,
-  },
-  bottomNav: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    flexDirection: "row",
-    justifyContent: "space-around",
-    alignItems: "center",
-    paddingVertical: Spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: "#003D3D",
-  },
-  navItem: {
-    alignItems: "center",
-    gap: Spacing.xs,
   },
 });

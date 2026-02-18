@@ -1,5 +1,5 @@
 import React, { ReactNode } from "react";
-import { StyleSheet, Pressable, ViewStyle, StyleProp } from "react-native";
+import { StyleSheet, Pressable, ViewStyle, StyleProp, View, TextStyle } from "react-native";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -16,6 +16,7 @@ interface ButtonProps {
   children: ReactNode;
   style?: StyleProp<ViewStyle>;
   disabled?: boolean;
+  variant?: "primary" | "secondary" | "tertiary";
 }
 
 const springConfig: WithSpringConfig = {
@@ -33,6 +34,7 @@ export function Button({
   children,
   style,
   disabled = false,
+  variant = "primary",
 }: ButtonProps) {
   const { theme } = useTheme();
   const scale = useSharedValue(1);
@@ -53,6 +55,42 @@ export function Button({
     }
   };
 
+  const getButtonStyle = (): ViewStyle => {
+    switch (variant) {
+      case "primary":
+        return {
+          backgroundColor: theme.primary,
+        };
+      case "secondary":
+        return {
+          backgroundColor: theme.backgroundSecondary,
+          borderWidth: 1,
+          borderColor: theme.border,
+        };
+      case "tertiary":
+        return {
+          backgroundColor: "transparent",
+        };
+      default:
+        return {
+          backgroundColor: theme.primary,
+        };
+    }
+  };
+
+  const getTextStyle = (): TextStyle => {
+    switch (variant) {
+      case "primary":
+        return { color: theme.buttonText };
+      case "secondary":
+        return { color: theme.text };
+      case "tertiary":
+        return { color: theme.primary };
+      default:
+        return { color: theme.buttonText };
+    }
+  };
+
   return (
     <AnimatedPressable
       onPress={disabled ? undefined : onPress}
@@ -61,17 +99,17 @@ export function Button({
       disabled={disabled}
       style={[
         styles.button,
-        {
-          backgroundColor: theme.link,
-          opacity: disabled ? 0.5 : 1,
-        },
+        getButtonStyle(),
+        variant === "secondary" && styles.secondaryButton,
+        variant === "tertiary" && styles.tertiaryButton,
+        { opacity: disabled ? 0.5 : 1 },
         style,
         animatedStyle,
       ]}
     >
       <ThemedText
         type="body"
-        style={[styles.buttonText, { color: theme.buttonText }]}
+        style={[styles.buttonText, getTextStyle()]}
       >
         {children}
       </ThemedText>
@@ -82,9 +120,16 @@ export function Button({
 const styles = StyleSheet.create({
   button: {
     height: Spacing.buttonHeight,
-    borderRadius: BorderRadius.full,
+    borderRadius: BorderRadius.md,
     alignItems: "center",
     justifyContent: "center",
+  },
+  secondaryButton: {
+    height: Spacing.buttonHeightSmall,
+  },
+  tertiaryButton: {
+    height: "auto",
+    paddingVertical: Spacing.sm,
   },
   buttonText: {
     fontWeight: "600",

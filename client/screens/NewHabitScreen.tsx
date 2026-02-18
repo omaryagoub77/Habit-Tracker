@@ -27,7 +27,6 @@ import { useDatabase } from "@/hooks/useDatabase";
 import { db } from "@/database/DatabaseService";
 import { Spacing, BorderRadius } from "@/constants/theme";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
-import AlarmNative from '../native/AlarmNative';
 
 // Expanded Icon Set
 const DISPLAY_ICONS = [
@@ -59,19 +58,17 @@ export default function NewHabitScreen() {
   
   // Start with Red to match the gradient start position (0)
   const [selectedColor, setSelectedColor] = useState("#FF0000");
-  const [thumbX, setThumbX] = useState(0); // Tracks the visual slider position
+  const [thumbX, setThumbX] = useState(0);
   
-  const [reminderEnabled, setReminderEnabled] = useState(true);
-  const [timerEnabled, setTimerEnabled] = useState(false);
-  // Time goal (minutes/day). Persisted to DB as `time_goal`.
-  const [timeGoal, setTimeGoal] = useState<number>(30);
-  const [reminderTime, setReminderTime] = useState(new Date());
-  const [showTimePicker, setShowTimePicker] = useState(false);
-  
+  const [reminderEnabled, setReminderEnabled] = useState(false);
   // Icon Picker Expansion State
   const [isIconsExpanded, setIsIconsExpanded] = useState(false);
 
   const [isSaving, setIsSaving] = useState(false);
+  
+  // Time picker state
+  const [reminderTime, setReminderTime] = useState(new Date());
+  const [showTimePicker, setShowTimePicker] = useState(false);
 
   // Sync navigation header
   useEffect(() => {
@@ -81,7 +78,6 @@ export default function NewHabitScreen() {
   }, [navigation]);
 
   // --- Logic: Notification & Alarms (PRESERVED) ---
-
   const scheduleDailyReminder = async (habitId: string, time: Date, name: string) => {
     try {
       const existingHabit = await db.getHabitById(parseInt(habitId));
@@ -100,8 +96,6 @@ export default function NewHabitScreen() {
         content: {
           title: 'Habit Reminder',
           body: `Time to ${name}!`,
-          // Android channel determines sound; passing a bundled asset here is unreliable.
-          // Use a safe string so production builds don't silently ignore sound config.
           sound: 'default',
           priority: Notifications.AndroidNotificationPriority.HIGH,
           data: { type: 'habit_reminder', habitId },
@@ -140,7 +134,7 @@ export default function NewHabitScreen() {
         icon: selectedIcon,
         color: selectedColor,
         reminderTime: reminderEnabled ? reminderTime.toISOString() : undefined,
-        timeGoal,
+        timeGoal: 0,
         startDate: new Date().toISOString().split('T')[0],
         active: true,
         createdAt: new Date().toISOString(),
@@ -161,9 +155,6 @@ export default function NewHabitScreen() {
         }
       }
 
-      // Hard-reset: native alarms are used ONLY for timer completion.
-      // Habit reminders remain notification-based and should not schedule native alarms.
-
       navigation.goBack();
     } catch (error) {
       Alert.alert("Error", "Failed to create habit.");
@@ -175,9 +166,6 @@ export default function NewHabitScreen() {
   const formatTime = (t: Date) => {
     const hours = t.getHours();
     const minutes = t.getMinutes();
-    // Correct AM/PM mapping:
-    // - 00:xx => 12:xx AM
-    // - 12:xx => 12:xx PM
     const ampm = hours >= 12 ? 'PM' : 'AM';
     const h = hours % 12 || 12;
     return { time: `${String(h).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`, ampm };
@@ -185,44 +173,35 @@ export default function NewHabitScreen() {
 
   const timeData = formatTime(reminderTime);
 
-  // --- Logic: Color Picker (Fixed) ---
-  const pickerWidthRef = useRef(0); // Use ref to avoid stale closures in PanResponder
+  // --- Logic: Color Picker ---
+  const pickerWidthRef = useRef(0);
 
   const handleGradientPress = (evt: GestureResponderEvent) => {
     const width = pickerWidthRef.current;
     if (width <= 0) return;
 
     const x = evt.nativeEvent.locationX;
-    // Clamp X to bounds
     const safeX = Math.max(0, Math.min(x, width));
 
-    // Update visual thumb
     setThumbX(safeX);
 
-    // Calculate percentage (0 to 1)
     const ratio = safeX / width;
-    
-    // Map to Hue (0-360)
     const hue = ratio * 360;
-    const newColor = hslToHex(hue, 100, 50); // Saturation 100%, Lightness 50%
+    const newColor = hslToHex(hue, 100, 50);
     setSelectedColor(newColor);
   };
 
   const panResponder = useRef(
     PanResponder.create({
-      // IMPORTANT: Capture touches so ScrollView doesn't steal them
       onStartShouldSetPanResponder: () => true,
       onStartShouldSetPanResponderCapture: () => true,
       onMoveShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponderCapture: () => true,
-      
       onPanResponderGrant: (evt) => handleGradientPress(evt),
       onPanResponderMove: (evt) => handleGradientPress(evt),
     })
   ).current;
 
-
-  // --- Logic: Icon Picker ---
   // Show 5 icons by default
   const visibleIcons = isIconsExpanded ? DISPLAY_ICONS : DISPLAY_ICONS.slice(0, 5);
 
@@ -230,10 +209,10 @@ export default function NewHabitScreen() {
     <ThemedView style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + Spacing.md }]}>
-        <Pressable onPress={() => navigation.goBack()} style={styles.headerBtn}>
-          <Feather name="x" size={24} color={theme.text} />
+        <Pressable onPress={() => navigation.goBack()} style={styles.headerBtn} hitSlop={8}>
+          <Feather name="x" size={22} color={theme.text} />
         </Pressable>
-        <ThemedText style={[styles.headerTitle, { color: theme.text }]}>Create Habit</ThemedText>
+        <ThemedText type="title" style={{ color: theme.text }}>Create Habit</ThemedText>
         <View style={{ width: 40 }} />
       </View>
 
@@ -245,7 +224,7 @@ export default function NewHabitScreen() {
         {/* Name Input Card (Preview) */}
         <View style={[styles.nameCard, { backgroundColor: theme.backgroundDefault }]}>
           <View style={[styles.mainIconCircle, { backgroundColor: selectedColor }]}>
-            <Feather name={selectedIcon as any} size={28} color="#000" />
+            <Feather name={selectedIcon as any} size={24} color="#000" />
           </View>
           <View style={styles.nameInputContainer}>
             <ThemedText style={[styles.inputLabel, { color: theme.textSecondary }]}>HABIT NAME</ThemedText>
@@ -286,13 +265,12 @@ export default function NewHabitScreen() {
               >
                 <Feather 
                   name={icon as any} 
-                  size={22} 
+                  size={20} 
                   color={selectedIcon === icon ? selectedColor : theme.textSecondary} 
                 />
               </Pressable>
             ))}
 
-            {/* Expand/Collapse Arrow Button */}
             <Pressable
               onPress={() => setIsIconsExpanded(!isIconsExpanded)}
               style={[
@@ -303,7 +281,7 @@ export default function NewHabitScreen() {
             >
               <Feather 
                 name={isIconsExpanded ? "chevron-up" : "chevron-down"} 
-                size={22} 
+                size={20} 
                 color={theme.text} 
               />
             </Pressable>
@@ -315,7 +293,6 @@ export default function NewHabitScreen() {
           <ThemedText style={[styles.subLabel, { color: theme.textSecondary }]}>Color</ThemedText>
           <View 
             style={styles.gradientContainer}
-            // Update the width ref on layout
             onLayout={(event) => pickerWidthRef.current = event.nativeEvent.layout.width}
             {...panResponder.panHandlers}
           >
@@ -325,54 +302,20 @@ export default function NewHabitScreen() {
               end={{ x: 1, y: 0 }}
               style={styles.gradientWheel}
             />
-            {/* Movable Thumb Indicator */}
             <View 
-              pointerEvents="none" // Pass touches through to parent
+              pointerEvents="none"
               style={[
                 styles.thumb, 
                 { 
                   backgroundColor: selectedColor,
-                  // Use thumbX state to move the indicator
-                  transform: [{ translateX: thumbX - 18 }] // -18 to center the 36px thumb
+                  transform: [{ translateX: thumbX - 16 }]
                 } 
               ]} 
             />
           </View>
         </View>
 
-        {/* Goal Section */}
-        <ThemedText style={[styles.sectionTitle, { color: theme.text }]}>Goal</ThemedText>
-        <View style={[styles.card, { backgroundColor: theme.backgroundDefault }]}>
-          <View style={styles.settingRow}>
-            <View style={styles.settingInfo}>
-              <View style={[styles.miniIcon, { backgroundColor: theme.primary + '20' }]}>
-                <Feather name="clock" size={16} color={theme.primary} />
-              </View>
-              <View>
-                <ThemedText style={[styles.settingLabel, { color: theme.text }]}>Timer</ThemedText>
-                <ThemedText style={[styles.settingSub, { color: theme.textSecondary }]}>Track duration</ThemedText>
-              </View>
-            </View>
-            <Switch 
-              value={timerEnabled} 
-              onValueChange={setTimerEnabled} 
-              trackColor={{ false: isDark ? '#142119' : theme.backgroundTertiary, true: selectedColor }} 
-              thumbColor={isDark ? theme.text : theme.textSecondary} 
-            />
-          </View>
-          <View style={[styles.divider, { backgroundColor: theme.border }]} />
-          <View style={styles.settingRow}>
-            <ThemedText style={[styles.settingLabel, { color: theme.text }]}>Duration</ThemedText>
-            <View style={[styles.durationBadge, { backgroundColor: theme.backgroundSecondary }]}>
-              <ThemedText style={[styles.durationValue, { color: theme.text }]}>
-                {timeGoal}{' '}
-                <ThemedText style={[styles.unitText, { color: theme.textSecondary }]}>min</ThemedText>
-              </ThemedText>
-            </View>
-          </View>
-        </View>
-
-        {/* Reminders Section */}
+        {/* Reminders Section - Subtle */}
         <ThemedText style={[styles.sectionTitle, { color: theme.text }]}>Reminders</ThemedText>
         <View style={[styles.card, { backgroundColor: theme.backgroundDefault }]}>
           <View style={styles.settingRow}>
@@ -381,24 +324,29 @@ export default function NewHabitScreen() {
                 <Feather name="bell" size={16} color={theme.secondary} />
               </View>
               <View>
-                <ThemedText style={[styles.settingLabel, { color: theme.text }]}>Alert</ThemedText>
-                <ThemedText style={[styles.settingSub, { color: theme.textSecondary }]}>Daily reminder</ThemedText>
+                <ThemedText style={[styles.settingLabel, { color: theme.text }]}>Daily Reminder</ThemedText>
+                <ThemedText style={[styles.settingSub, { color: theme.textSecondary }]}>Optional</ThemedText>
               </View>
             </View>
             <Switch 
               value={reminderEnabled} 
               onValueChange={setReminderEnabled} 
               trackColor={{ false: isDark ? '#142119' : theme.backgroundTertiary, true: selectedColor }} 
-              thumbColor={isDark ? theme.text : theme.textSecondary} 
+              thumbColor="#FFFFFF"
             />
           </View>
-          <View style={[styles.divider, { backgroundColor: theme.border }]} />
-          <Pressable onPress={() => setShowTimePicker(true)} style={styles.settingRow}>
-            <ThemedText style={[styles.settingLabel, { color: theme.text }]}>Time</ThemedText>
-            <ThemedText style={[styles.timeDisplay, { color: theme.text }]}>
-              {timeData.time} <ThemedText style={[styles.unitText, { color: theme.textSecondary }]}>{timeData.ampm}</ThemedText>
-            </ThemedText>
-          </Pressable>
+          
+          {reminderEnabled && (
+            <>
+              <View style={[styles.divider, { backgroundColor: theme.border }]} />
+              <Pressable onPress={() => setShowTimePicker(true)} style={styles.settingRow}>
+                <ThemedText style={[styles.settingLabel, { color: theme.text }]}>Time</ThemedText>
+                <ThemedText style={[styles.timeDisplay, { color: theme.text }]}>
+                  {timeData.time} <ThemedText style={[styles.unitText, { color: theme.textSecondary }]}>{timeData.ampm}</ThemedText>
+                </ThemedText>
+              </Pressable>
+            </>
+          )}
         </View>
 
         {/* Action Buttons */}
@@ -414,7 +362,7 @@ export default function NewHabitScreen() {
              <ThemedText style={[styles.saveBtnText, { color: '#000' }]}>Saving...</ThemedText>
           ) : (
             <>
-              <Feather name="check" size={20} color={'#000'} style={{ marginRight: 8 }} />
+              <Feather name="check" size={18} color={'#000'} style={{ marginRight: 8 }} />
               <ThemedText style={[styles.saveBtnText, { color: '#000' }]}>Save Habit</ThemedText>
             </>
           )}
@@ -444,7 +392,6 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: Spacing.lg },
   headerBtn: { width: 40, height: 40, justifyContent: 'center' },
-  headerTitle: { fontSize: 18, fontWeight: '700' },
   scrollView: { flex: 1 },
   scrollContent: { paddingHorizontal: Spacing.lg, paddingTop: Spacing.xl },
   nameCard: { 
@@ -453,11 +400,11 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.lg,
     alignItems: 'center'
   },
-  mainIconCircle: { width: 50, height: 50, borderRadius: 25, justifyContent: 'center', alignItems: 'center', marginRight: Spacing.md },
+  mainIconCircle: { width: 48, height: 48, borderRadius: 24, justifyContent: 'center', alignItems: 'center', marginRight: Spacing.md },
   nameInputContainer: { flex: 1 },
   inputLabel: { fontSize: 10, fontWeight: '700', letterSpacing: 1 },
-  textInput: { fontSize: 20, marginTop: 4, paddingVertical: 4, paddingHorizontal: 4 },
-  sectionTitle: { fontSize: 16, fontWeight: '600', marginTop: Spacing.xl, marginBottom: Spacing.md },
+  textInput: { fontSize: 18, marginTop: 4, paddingVertical: 4, paddingHorizontal: 4 },
+  sectionTitle: { fontSize: 14, fontWeight: '600', marginTop: Spacing.xl, marginBottom: Spacing.md, textTransform: 'uppercase', letterSpacing: 0.5 },
   card: { borderRadius: BorderRadius.lg, padding: Spacing.lg },
   subLabel: { fontSize: 12, fontWeight: '600', marginBottom: Spacing.md },
   
@@ -465,7 +412,7 @@ const styles = StyleSheet.create({
   iconGridContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
+    gap: Spacing.sm,
   },
   selectionCircle: { 
     width: 44, 
@@ -482,52 +429,83 @@ const styles = StyleSheet.create({
   // Color Picker Styles
   gradientContainer: {
     width: '100%',
-    height: 50,
+    height: 44,
     justifyContent: 'center',
     marginBottom: 8,
   },
   gradientWheel: {
     width: '100%',
-    height: 44,
-    borderRadius: 22,
-  },
-  thumb: {
-    position: 'absolute',
-    left: 0,
-    width: 36,
     height: 36,
     borderRadius: 18,
+  },
+  thumb: {
+    position: "absolute",
+    left: 0,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     borderWidth: 3,
     borderColor: '#FFF',
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.3,
-    shadowRadius: 2,
-    elevation: 3,
   },
 
-  divider: { height: 1, marginVertical: Spacing.lg },
-  
-  // Settings Rows
-  settingRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  settingInfo: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  miniIcon: { width: 32, height: 32, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
-  settingLabel: { fontSize: 15, fontWeight: '600' },
-  settingSub: { fontSize: 12 },
-  durationBadge: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 },
-  durationValue: { fontWeight: '700' },
-  unitText: { fontSize: 12 },
-  timeDisplay: { fontSize: 22, fontWeight: '700' },
-  
-  saveBtn: { 
-    marginTop: Spacing.xl, 
-    height: 56, 
-    borderRadius: 28, 
-    flexDirection: 'row', 
-    justifyContent: 'center', 
-    alignItems: 'center' 
+  // Setting Row
+  settingRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: Spacing.xs,
   },
-  saveBtnText: { fontWeight: '700', fontSize: 16 },
-  cancelBtn: { marginTop: Spacing.lg, alignItems: 'center', padding: 10 },
-  cancelText: { fontWeight: '600' }
+  settingInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+  },
+  settingLabel: {
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  settingSub: {
+    fontSize: 12,
+    marginTop: 2,
+  },
+  miniIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  divider: {
+    height: 1,
+    marginVertical: Spacing.md,
+  },
+  timeDisplay: {
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  unitText: {
+    fontSize: 14,
+  },
+
+  // Buttons
+  saveBtn: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    justifyContent: 'center',
+    height: 48, 
+    borderRadius: BorderRadius.md, 
+    marginTop: Spacing.xl 
+  },
+  saveBtnText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  cancelBtn: { 
+    alignItems: 'center', 
+    paddingVertical: Spacing.md,
+    marginTop: Spacing.md,
+  },
+  cancelText: {
+    fontSize: 16,
+  },
 });

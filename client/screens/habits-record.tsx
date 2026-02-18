@@ -24,15 +24,22 @@ import { Habit } from "@/database/DatabaseService";
 import { db } from "@/database/DatabaseService";
 import { Spacing, BorderRadius } from "@/constants/theme";
 
-// Generate last 31 days to ensure we see month transitions clearly
+// Generate all days of the current month
 function getDaysRange(): string[] {
   const dates: string[] = [];
   const today = new Date();
+  const year = today.getFullYear();
+  const month = today.getMonth();
   
-  // Show past 31 days
-  for (let i = 30; i >= 0; i--) {
-    const date = new Date(today);
-    date.setDate(today.getDate() - i);
+  // Get the first day of the current month
+  const firstDay = new Date(year, month, 1);
+  
+  // Get the last day of the current month (day 0 of next month = last day of current month)
+  const lastDay = new Date(year, month + 1, 0);
+  
+  // Loop through each day of the current month
+  for (let day = 1; day <= lastDay.getDate(); day++) {
+    const date = new Date(year, month, day);
     const dateString = date.toISOString().split("T")[0];
     dates.push(dateString);
   }

@@ -1,175 +1,239 @@
 import React, { useMemo } from "react";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { Feather } from "@expo/vector-icons";
-import { StyleSheet, Platform } from "react-native";
+import {
+  StyleSheet,
+  View,
+  Text,
+  Pressable,
+  useWindowDimensions,
+  Platform,
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import Animated, {
+  useAnimatedStyle,
+  withTiming,
+  Easing,
+} from "react-native-reanimated";
 import { useTheme } from "@/hooks/useTheme";
+import { Colors } from "@/constants/theme";
 
-// Lazy load screens to reduce initial bundle size
+// --- LAZY LOAD SCREENS ---
+// (Ensure these paths match your project structure)
 const TodayScreen = React.lazy(() => import("@/screens/TodayScreen"));
-const TasksScreen = React.lazy(() => import("@/screens/TasksScreen"));
 const ReportsStackNavigator = React.lazy(() => import("@/navigation/ReportsStackNavigator"));
-// I've added this import based on your new Tab.Screen
 const HabitsRecordScreen = React.lazy(() => import("@/screens/habits-record"));
-const HabitTimerScreen = React.lazy(() => import("@/screens/HabitTimerScreen"));
 const SettingsScreen = React.lazy(() => import("@/screens/SettingsScreen"));
 
+// --- TYPES ---
 export type MainTabParamList = {
   TodayTab: undefined;
   ReportsTab: undefined;
-  TaskTab: undefined;
-  HabitsRecordTab: undefined; // Added the new type
-  HabitTimerTab: undefined; // Added Habit Timer tab
+  HabitsRecordTab: undefined;
   SettingsTab: undefined;
 };
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
-export default function MainTabNavigator() {
-  const { theme } = useTheme();
-  
-  // Memoize the tab bar style to prevent unnecessary re-renders
-  const tabBarStyle = useMemo(() => ({
-    position: "absolute" as const,
-    backgroundColor: theme.backgroundRoot,
-    ...Platform.select({
-      ios: {
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.2,
-        shadowRadius: 15,
-      },
-      android: {
-        elevation: 15,
-        shadowColor: "#000",
-      },
-      default: {
-        boxShadow: "0px 10px 15px rgba(0, 0, 0, 0.2)",
-      },
-    }),
-    height: 114, // Increased height to accommodate labels
-    // bottom: 35,
-    // left: 20,
-    // right: 20,
-    // borderRadius: 30,
-    borderTopWidth: 0,
-  }), [theme.backgroundRoot]);
-  
-  // Memoize common tab bar icon components to prevent re-creation
-  const tabIconComponents = useMemo(() => ({
-    home: ({ color, size }: { color: string; size: number }) => (
-      <Feather name="home" size={size} color={color} />
-    ),
-    // Changed from calendar to chart-bar for reports
-    chartBar: ({ color, size }: { color: string; size: number }) => (
-      <Feather name="bar-chart" size={size} color={color} />
-    ),
-    clock: ({ color, size }: { color: string; size: number }) => (
-      <Feather name="clock" size={size} color={color} />
-    ),
-    // Changed from list to check-circle for tasks
-    checkCircle: ({ color, size }: { color: string; size: number }) => (
-      <Feather name="check-circle" size={size} color={color} />
-    ),
-    // Changed from list to database for records
-    database: ({ color, size }: { color: string; size: number }) => (
-      <Feather name="database" size={size} color={color} />
-    ),
-    settings: ({ color, size }: { color: string; size: number }) => (
-      <Feather name="settings" size={size} color={color} />
-    ),
-  }), []);
-  
-  // Memoize screen options to prevent re-creation on each render
-  const todayTabOptions = useMemo(() => ({
-    title: "Home",
-    tabBarIcon: tabIconComponents.home,
-  }), [tabIconComponents.home]);
-  
+// --- CONFIGURATION ---
+const TAB_CONFIG = [
+  { name: "TodayTab", title: "Home", icon: "home" },
+  { name: "ReportsTab", title: "Reports", icon: "bar-chart-2" },
+  { name: "HabitsRecordTab", title: "Records", icon: "database" },
+  { name: "SettingsTab", title: "Settings", icon: "settings" },
+] as const;
 
+// --- ANIMATED COMPONENTS ---
+
+/**
+ * The sliding background pill.
+ */
+function ActiveTabIndicator({
+  focusedIndex,
+  tabWidth,
+  colors,
+}: {
+  focusedIndex: number;
+  tabWidth: number;
+  colors: typeof Colors.light;
+}) {
+  const animatedStyle = useAnimatedStyle(() => {
+    const inset = 4; // Gap between indicator and container edge
+    return {
+      transform: [
+        {
+          translateX: withTiming(focusedIndex * tabWidth, {
+            duration: 250,
+            easing: Easing.bezier(0.25, 0.1, 0.25, 1),
+          }),
+        },
+      ],
+      width: tabWidth - (inset * 2),
+      left: inset,
+      backgroundColor: colors.tabActiveBackground, // <--- Animate color change
+    };
+  }, [focusedIndex, tabWidth, colors.tabActiveBackground]);
+
+  return <Animated.View style={[styles.activeIndicator, animatedStyle]} />;
+}
+
+/**
+ * The Main Floating Tab Bar Component
+ */
+function CustomFloatingTabBar({ state, descriptors, navigation, insets }: any) {
+  const { width: windowWidth } = useWindowDimensions();
   
-  const reportsTabOptions = useMemo(() => ({
-    title: "Reports",
-    tabBarIcon: tabIconComponents.chartBar, // Changed to chart-bar icon
-    headerShown: false,
-  }), [tabIconComponents.chartBar]);
-  
-  const taskTabOptions = useMemo(() => ({
-    title: "Tasks",
-    tabBarIcon: tabIconComponents.checkCircle, // Changed to check-circle icon
-  }), [tabIconComponents.checkCircle]);
-  
-  const habitsRecordTabOptions = useMemo(() => ({
-    title: "Records",
-    tabBarIcon: tabIconComponents.database, // Changed to database icon
-  }), [tabIconComponents.database]);
-  
-  const habitTimerTabOptions = useMemo(() => ({
-    title: "Timer",
-    tabBarIcon: tabIconComponents.clock,
-  }), [tabIconComponents.clock]);
-  
-  const settingsTabOptions = useMemo(() => ({
-    title: "Settings",
-    tabBarIcon: tabIconComponents.settings,
-  }), [tabIconComponents.settings]);
-  
-  // Memoize the main screen options object
+  // Use the centralized theme system
+  const { theme, isDark } = useTheme();
+  const colors = theme;
+
+  // 2. Calculate Dimensions
+  const MARGIN_H = 16; // Left/Right margin
+  const containerWidth = windowWidth - (MARGIN_H * 2);
+  const tabWidth = containerWidth / state.routes.length;
+
+  return (
+    <View pointerEvents="box-none" style={styles.floatingOverlay}>
+      <View
+        style={[
+          styles.container,
+          {
+            width: containerWidth,
+            bottom: insets.bottom + 6, // Float above safe area
+            backgroundColor: colors.tabContainerBackground,
+            shadowColor: isDark ? colors.shadowDark : colors.shadowLight,
+            shadowOpacity: isDark ? 0.4 : 0.1,
+            // Android Elevation
+            elevation: isDark ? 8 : 4,
+          },
+        ]}
+      >
+        {/* Animated Background Layer */}
+        <ActiveTabIndicator 
+          focusedIndex={state.index} 
+          tabWidth={tabWidth} 
+          colors={colors} 
+        />
+
+        {/* Tab Items Layer */}
+        <View style={styles.tabsLayer}>
+          {state.routes.map((route: any, index: number) => {
+            const { options } = descriptors[route.key];
+            const isFocused = state.index === index;
+            const tabConfig = TAB_CONFIG[index];
+
+            const onPress = () => {
+              const event = navigation.emit({
+                type: "tabPress",
+                target: route.key,
+                canPreventDefault: true,
+              });
+
+              if (!isFocused && !event.defaultPrevented) {
+                navigation.navigate(route.name);
+              }
+            };
+
+            return (
+              <Pressable
+                key={route.key}
+                onPress={onPress}
+                style={styles.tabItem}
+                accessibilityRole="button"
+                accessibilityState={isFocused ? { selected: true } : {}}
+              >
+                <Feather
+                  name={tabConfig.icon as any}
+                  size={20}
+                  color={isFocused ? colors.tabActiveIcon : colors.tabInactiveIcon}
+                  style={{ marginBottom: 4 }}
+                />
+                <Text
+                  style={[
+                    styles.label,
+                    { 
+                      color: isFocused ? colors.tabActiveIcon : colors.tabInactiveIcon,
+                      fontWeight: isFocused ? "600" : "500"
+                    },
+                  ]}
+                >
+                  {tabConfig.title}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      </View>
+    </View>
+  );
+}
+
+// --- MAIN NAVIGATOR ---
+
+export default function MainTabNavigator() {
+  const insets = useSafeAreaInsets();
+
   const screenOptions = useMemo(() => ({
-    tabBarShowLabel: true, // Show labels on Android
-    tabBarActiveTintColor: theme.tabIconSelected,
-    tabBarInactiveTintColor: theme.tabIconDefault,
-    tabBarStyle: tabBarStyle,
-    tabBarItemStyle: {
-      justifyContent: "center" as "center",
-      alignItems: "center" as "center",
-      flex: 1,
-      paddingVertical: 8, // Add some padding
-    },
-    tabBarLabelStyle: {
-      fontSize: 9, // Changed from 7 to 9
-      marginTop: 4, // Add space between icon and label
-      fontWeight: "500" as "500",
-    },
     headerShown: false,
-  }), [theme.tabIconSelected, theme.tabIconDefault, tabBarStyle]);
+    tabBarShowLabel: false,
+    tabBarStyle: { display: "none" as const }, // Hide default system bar
+  }), []);
 
   return (
     <Tab.Navigator
       initialRouteName="TodayTab"
       screenOptions={screenOptions}
-
+      tabBar={(props) => (
+        <CustomFloatingTabBar {...props} insets={insets} />
+      )}
     >
-      <Tab.Screen
-        name="TodayTab"
-        component={TodayScreen}
-        options={todayTabOptions}
-      />
-
-      <Tab.Screen
-        name="ReportsTab"
-        component={ReportsStackNavigator}
-        options={reportsTabOptions}
-      />
-      <Tab.Screen
-        name="TaskTab"
-        component={TasksScreen}
-        options={taskTabOptions}
-      />
-      <Tab.Screen
-        name="HabitTimerTab"
-        component={HabitTimerScreen}
-        options={habitTimerTabOptions}
-      />
-       <Tab.Screen
-        name="HabitsRecordTab"
-        component={HabitsRecordScreen}
-        options={habitsRecordTabOptions}
-      />
-       <Tab.Screen
-        name="SettingsTab"
-        component={SettingsScreen}
-        options={settingsTabOptions}
-      />
+      <Tab.Screen name="TodayTab" component={TodayScreen} />
+      <Tab.Screen name="ReportsTab" component={ReportsStackNavigator} />
+      <Tab.Screen name="HabitsRecordTab" component={HabitsRecordScreen} />
+      <Tab.Screen name="SettingsTab" component={SettingsScreen} />
     </Tab.Navigator>
   );
 }
+
+// --- STYLES ---
+
+const styles = StyleSheet.create({
+  floatingOverlay: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    alignItems: "center",
+    justifyContent: "flex-end",
+    zIndex: 100,
+  },
+  container: {
+    height: 64, // Comfortable touch height
+    flexDirection: "row",
+    borderRadius: 32, // Full Pill Shape
+    position: "absolute",
+    // Base shadow props (Opacity and Color handled dynamically)
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 16,
+  },
+  activeIndicator: {
+    position: "absolute",
+    top: 4,
+    bottom: 4,
+    borderRadius: 28, // Matches container radius minus padding
+  },
+  tabsLayer: {
+    flexDirection: "row",
+    flex: 1,
+  },
+  tabItem: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    height: "100%",
+  },
+  label: {
+    fontSize: 9,
+    letterSpacing: 0.2,
+  },
+});
